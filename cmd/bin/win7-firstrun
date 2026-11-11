@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – Ersteinrichtung in einer laufenden XFCE-Sitzung
+#
+# Wird einmalig per Autostart (oder direkt von install.sh) ausgeführt:
+#   * setzt den Hintergrund auf allen Monitoren/Arbeitsflächen
+#   * stellt Theme, Icons, Cursor und Fensterdekoration per xfconf sicher
+#   * lädt Panel/Desktop neu und spielt den Startklang
+#   * deaktiviert danach seinen eigenen Autostart-Eintrag
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}"
+MARK_DIR="$CONF/thewindowslinux"
+# Stil-Infos (von install.sh geschrieben)
+GTKTHEME=Windows-Retro; WMTHEME=Windows-Retro; ICONTHEME=Windows-Retro; CURSOR=""; CURSORSIZE=32
+WALLPAPER="$DATADIR/wallpapers/retro.png"
+if [ -r "$DATADIR/style.conf" ]; then
+    # shellcheck disable=SC1091
+    . "$DATADIR/style.conf"
+fi
+FORCE=0
+[ "${1:-}" = "--force" ] && FORCE=1
+
+log() { printf '[TheWindowsLinux] %s\n' "$*"; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# Auf xfconfd warten (max. 20 s) – ohne Sitzung gibt es nichts zu tun
+if ! have xfconf-query; then exit 0; fi
+for _ in $(seq 1 40); do
+    xfconf-query -c xsettings -l >/dev/null 2>&1 && break
+    sleep 0.5
+done
+
+# --- Hintergrund auf allen Monitoren ---------------------------------------
+if [ -f "$WALLPAPER" ]; then
+    props="$(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E '/backdrop/screen[0-9]+/monitor.*/workspace[0-9]+/last-image$' || true)"
+    # Zusätzlich die aktuellen Monitor-Namen (xfdesktop 4.14+: monitor<Ausgabename>, ältere: monitor0)
+    mons="$(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')"
+    for m in $mons 0; do
+        for ws in 0 1 2 3; do
+            props="$props /backdrop/screen0/monitor$m/workspace$ws/last-image"
+        done
+    done
+    props="$(printf '%s\n' $props | sort -u)"
+    for p in $props; do
+        base="${p%/last-image}"
+        xfconf-query -c xfce4-desktop -p "$p" -n -t string -s "$WALLPAPER" 2>/dev/null
+        xfconf-query -c xfce4-desktop -p "$base/image-style" -n -t int -s 5 2>/dev/null
+        xfconf-query -c xfce4-desktop -p "$base/color-style" -n -t int -s 0 2>/dev/null
+    done
+    log "Hintergrund gesetzt."
+fi
+
+# --- Erscheinungsbild absichern ------------------------------------------------
+xfconf-query -c xsettings -p /Net/ThemeName -n -t string -s "$GTKTHEME" 2>/dev/null
+xfconf-query -c xsettings -p /Net/IconThemeName -n -t string -s "$ICONTHEME" 2>/dev/null
+xfconf-query -c xfwm4 -p /general/theme -n -t string -s "$WMTHEME" 2>/dev/null
+xfconf-query -c xfwm4 -p /general/button_layout -n -t string -s "O|HMC" 2>/dev/null
+xfconf-query -c xfwm4 -p /general/use_compositing -n -t bool -s true 2>/dev/null
+xfconf-query -c xfwm4 -p /general/tile_on_move -n -t bool -s true 2>/dev/null
+for cur in $CURSOR Windows-Retro DMZ-White Vanilla-DMZ Adwaita; do
+    if [ -d "/usr/share/icons/$cur/cursors" ] || [ -d "$HOME/.icons/$cur/cursors" ] || [ -d "$HOME/.local/share/icons/$cur/cursors" ]; then
+        xfconf-query -c xsettings -p /Gtk/CursorThemeName -n -t string -s "$cur" 2>/dev/null
+        xfconf-query -c xsettings -p /Gtk/CursorThemeSize -n -t int -s "$CURSORSIZE" 2>/dev/null
+        break
+    fi
+done
+
+# --- Terminal-Einstellungen (xfce4-terminal >= 1.1 nutzt den xfconf-Kanal) --------
+TERMRC="$CONF/xfce4/terminal/terminalrc"
+if [ -r "$TERMRC" ]; then
+    grep -E '^[A-Za-z]+=' "$TERMRC" | while IFS='=' read -r key val; do
+        name="$(printf '%s' "$key" | sed -E 's/([a-z0-9])([A-Z])/\1-\2/g' | tr '[:upper:]' '[:lower:]')"
+        case "$val" in
+            TRUE)  xfconf-query -c xfce4-terminal -p "/$name" -n -t bool -s true 2>/dev/null ;;
+            FALSE) xfconf-query -c xfce4-terminal -p "/$name" -n -t bool -s false 2>/dev/null ;;
+            *)
+                if printf '%s' "$val" | grep -Eq '^-?[0-9]+$'; then xfconf-query -c xfce4-terminal -p "/$name" -n -t int -s "$val" 2>/dev/null
+                elif printf '%s' "$val" | grep -Eq '^-?[0-9]+\.[0-9]+$'; then xfconf-query -c xfce4-terminal -p "/$name" -n -t double -s "$val" 2>/dev/null
+                else xfconf-query -c xfce4-terminal -p "/$name" -n -t string -s "$val" 2>/dev/null; fi ;;
+        esac
+    done
+fi
+
+# --- Desktop-Symbole --------------------------------------------------------------
+xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-home -n -t bool -s true 2>/dev/null
+xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-filesystem -n -t bool -s true 2>/dev/null
+xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-trash -n -t bool -s true 2>/dev/null
+xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-removable -n -t bool -s true 2>/dev/null
+
+# --- Komponenten neu laden ----------------------------------------------------
+if pgrep -x xfce4-panel >/dev/null 2>&1; then xfce4-panel -r 2>/dev/null & fi
+if pgrep -x xfdesktop >/dev/null 2>&1; then xfdesktop --reload 2>/dev/null & fi
+if pgrep -x xfsettingsd >/dev/null 2>&1; then xfsettingsd --replace >/dev/null 2>&1 & fi
+
+# --- Klang & Begrüßung --------------------------------------------------------
+if [ $FORCE -eq 1 ] || [ ! -e "$MARK_DIR/firstrun-done" ]; then
+    "$DATADIR/bin/win7-sound" startup >/dev/null 2>&1 &
+    if have notify-send; then
+        case "${LANG:-}" in
+            de*) notify-send -i win7-start "Willkommen bei TheWindowsLinux" "Das Windows-7-Overlay ist eingerichtet. Win+E öffnet den Explorer, Win+R den Ausführen-Dialog, Strg+Alt+T die Eingabeaufforderung." ;;
+            *)   notify-send -i win7-start "Welcome to TheWindowsLinux" "The Windows 7 overlay is ready. Win+E opens Explorer, Win+R the Run dialog, Ctrl+Alt+T the Command Prompt." ;;
+        esac
+    fi
+fi
+
+# --- Autostart-Eintrag deaktivieren --------------------------------------------
+mkdir -p "$MARK_DIR" "$CONF/autostart"
+date +%s > "$MARK_DIR/firstrun-done"
+cat > "$CONF/autostart/win7-firstrun.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=TheWindowsLinux – Ersteinrichtung
+Exec=true
+Hidden=true
+X-GNOME-Autostart-enabled=false
+EOF
+log "Ersteinrichtung abgeschlossen."
+exit 0

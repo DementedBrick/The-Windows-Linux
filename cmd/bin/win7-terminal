@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – öffnet ein Terminalfenster "Eingabeaufforderung" mit der cmd-Shell
+#
+#   win7-terminal [--working-directory=PFAD] [-- BEFEHL ...]
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+CMD="$DATADIR/bin/cmd"
+WD=""
+TITLE="Eingabeaufforderung"
+case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in de*) ;; *) TITLE="Command Prompt" ;; esac
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --working-directory=*) WD="${1#*=}" ;;
+        --working-directory|-w) WD="${2:-}"; shift ;;
+        --title=*) TITLE="${1#*=}" ;;
+        --) shift; break ;;
+        *) break ;;
+    esac
+    shift
+done
+[ -n "$WD" ] && [ -f "$WD" ] && WD="$(dirname "$WD")"
+
+run=("$CMD")
+[ $# -gt 0 ] && run=("$CMD" /k "$@")
+
+if command -v xfce4-terminal >/dev/null 2>&1; then
+    args=(--title="$TITLE" --icon=win7-cmd --hide-menubar --hide-toolbar --dynamic-title-mode=replace)
+    [ -n "$WD" ] && args+=(--working-directory="$WD")
+    exec xfce4-terminal "${args[@]}" -x "${run[@]}"
+elif command -v gnome-terminal >/dev/null 2>&1; then
+    args=(--title="$TITLE" --hide-menubar)
+    [ -n "$WD" ] && args+=(--working-directory="$WD")
+    exec gnome-terminal "${args[@]}" -- "${run[@]}"
+elif command -v konsole >/dev/null 2>&1; then
+    args=(--hide-menubar --hide-tabbar)
+    [ -n "$WD" ] && args+=(--workdir "$WD")
+    exec konsole "${args[@]}" -e "${run[@]}"
+elif command -v xterm >/dev/null 2>&1; then
+    [ -n "$WD" ] && cd "$WD"
+    exec xterm -T "$TITLE" -bg black -fg gray75 -fa Monospace -fs 10 -geometry 100x30 -e "${run[@]}"
+elif command -v exo-open >/dev/null 2>&1; then
+    [ -n "$WD" ] && cd "$WD"
+    exec exo-open --launch TerminalEmulator "${run[@]}"
+else
+    [ -n "$WD" ] && cd "$WD"
+    exec x-terminal-emulator -e "${run[@]}"
+fi

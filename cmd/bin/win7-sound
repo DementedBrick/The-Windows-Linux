@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – spielt einen System-Sound (logon, logoff, startup, notify, error, ding)
+#   win7-sound NAME        Sound abspielen
+#   win7-sound --off/--on  Sounds für diesen Benutzer aus-/einschalten
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/thewindowslinux"
+
+case "${1:-}" in
+    --off) mkdir -p "$CONF"; touch "$CONF/sounds-off"; echo "Sounds aus."; exit 0 ;;
+    --on)  rm -f "$CONF/sounds-off"; echo "Sounds an."; exit 0 ;;
+    ""|-h|--help) echo "win7-sound {logon|logoff|startup|notify|error|ding} | --on | --off"; exit 0 ;;
+esac
+[ -e "$CONF/sounds-off" ] && exit 0
+
+name="${1%.wav}"
+file=""
+for d in "$DATADIR/sounds" /usr/share/sounds/thewindowslinux /usr/local/share/sounds/thewindowslinux; do
+    [ -f "$d/$name.wav" ] && { file="$d/$name.wav"; break; }
+done
+[ -n "$file" ] || exit 0
+
+if command -v paplay >/dev/null 2>&1; then
+    exec paplay "$file"
+elif command -v pw-play >/dev/null 2>&1; then
+    exec pw-play "$file"
+elif command -v aplay >/dev/null 2>&1; then
+    exec aplay -q "$file"
+elif command -v ffplay >/dev/null 2>&1; then
+    exec ffplay -nodisp -autoexit -loglevel quiet "$file"
+elif command -v canberra-gtk-play >/dev/null 2>&1; then
+    exec canberra-gtk-play -f "$file"
+fi
+exit 0

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Internet
+Name[de]=Internet
+Comment=Standard-Webbrowser öffnen
+Exec=exo-open --launch WebBrowser
+Icon=web-browser
+Terminal=false
+StartupNotify=true
+Categories=Network;WebBrowser;
+X-XFCE-Source=file:///usr/share/applications/exo-web-browser.desktop

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Netzwerk
+Name[de]=Netzwerk
+Comment=Netzwerkumgebung durchsuchen
+Exec=thunar network:///
+Icon=network-workgroup
+Terminal=false
+StartupNotify=true
+Categories=Network;

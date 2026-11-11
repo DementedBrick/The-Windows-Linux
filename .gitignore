@@ -1,0 +1,8 @@
+# Build-Artefakte
+iso/build/
+__pycache__/
+*.pyc
+.build/
+# Test-/Temporärdateien
+*.log
+*.swp

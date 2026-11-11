@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Computer
+Name[de]=Computer
+Comment=Laufwerke und Geräte anzeigen
+Exec=thunar computer:///
+Icon=computer
+Terminal=false
+StartupNotify=true
+Categories=System;FileTools;

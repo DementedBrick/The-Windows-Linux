@@ -1,0 +1,166 @@
+# Windows7-Aero – GTK-2-Theme für TheWindowsLinux
+# Farbschema wie unter Windows 7 (Basic). Nutzt nur die eingebaute Standard-Engine,
+# damit keine zusätzlichen Pakete nötig sind.
+
+gtk-color-scheme = "bg_color:#f0f0f0\nfg_color:#000000\nbase_color:#ffffff\ntext_color:#000000\nselected_bg_color:#3399ff\nselected_fg_color:#ffffff\ntooltip_bg_color:#ffffff\ntooltip_fg_color:#575757\nlink_color:#0066cc"
+
+gtk-button-images = 1
+gtk-menu-images = 1
+gtk-toolbar-style = GTK_TOOLBAR_ICONS
+gtk-icon-sizes = "gtk-menu=16,16:gtk-button=16,16:gtk-small-toolbar=16,16:gtk-large-toolbar=24,24"
+
+style "win7-default" {
+  xthickness = 1
+  ythickness = 1
+
+  GtkButton::default-border        = { 0, 0, 0, 0 }
+  GtkButton::default-outside-border = { 0, 0, 0, 0 }
+  GtkButton::child-displacement-x  = 1
+  GtkButton::child-displacement-y  = 1
+  GtkButton::focus-padding         = 1
+  GtkCheckButton::indicator-size   = 13
+  GtkRadioButton::indicator-size   = 13
+  GtkRange::trough-border          = 0
+  GtkRange::slider-width           = 17
+  GtkRange::stepper-size           = 17
+  GtkScrollbar::min-slider-length  = 30
+  GtkScrollbar::has-backward-stepper = 1
+  GtkScrollbar::has-forward-stepper  = 1
+  GtkScale::slider-length          = 11
+  GtkScale::slider-width           = 21
+  GtkPaned::handle-size            = 4
+  GtkMenuBar::internal-padding     = 0
+  GtkMenuBar::shadow-type          = GTK_SHADOW_NONE
+  GtkMenu::horizontal-padding      = 2
+  GtkMenu::vertical-padding        = 2
+  GtkMenuItem::horizontal-padding  = 8
+  GtkToolbar::shadow-type          = GTK_SHADOW_NONE
+  GtkToolbar::internal-padding     = 2
+  GtkTreeView::expander-size       = 11
+  GtkTreeView::odd-row-color       = "#ffffff"
+  GtkExpander::expander-size       = 11
+  GtkNotebook::tab-overlap         = 1
+  GtkWidget::focus-line-width      = 1
+  GtkWidget::focus-padding         = 1
+  GtkWidget::link-color            = @link_color
+  GtkWidget::visited-link-color    = "#551a8b"
+  GtkProgressBar::min-horizontal-bar-height = 16
+  GtkProgressBar::min-vertical-bar-width    = 16
+
+  bg[NORMAL]        = @bg_color
+  bg[PRELIGHT]      = "#e5f4fc"
+  bg[ACTIVE]        = "#cfd9e5"
+  bg[SELECTED]      = @selected_bg_color
+  bg[INSENSITIVE]   = "#f4f4f4"
+
+  fg[NORMAL]        = @fg_color
+  fg[PRELIGHT]      = @fg_color
+  fg[ACTIVE]        = @fg_color
+  fg[SELECTED]      = @selected_fg_color
+  fg[INSENSITIVE]   = "#838383"
+
+  base[NORMAL]      = @base_color
+  base[PRELIGHT]    = "#dcebfc"
+  base[ACTIVE]      = "#dcebfc"
+  base[SELECTED]    = @selected_bg_color
+  base[INSENSITIVE] = "#f4f4f4"
+
+  text[NORMAL]      = @text_color
+  text[PRELIGHT]    = @text_color
+  text[ACTIVE]      = @text_color
+  text[SELECTED]    = @selected_fg_color
+  text[INSENSITIVE] = "#838383"
+}
+
+style "win7-button" = "win7-default" {
+  xthickness = 3
+  ythickness = 3
+  bg[NORMAL]   = "#e1e1e1"
+  bg[PRELIGHT] = "#cde8f7"
+  bg[ACTIVE]   = "#9ccfeb"
+}
+
+style "win7-menubar" = "win7-default" {
+  bg[NORMAL]   = "#f2f5f9"
+  bg[PRELIGHT] = "#e6f0fb"
+}
+
+style "win7-menu" = "win7-default" {
+  xthickness = 2
+  ythickness = 2
+  bg[NORMAL]   = "#f0f0f0"
+  bg[PRELIGHT] = "#e2eefb"
+  fg[PRELIGHT] = @fg_color
+  text[PRELIGHT] = @fg_color
+}
+
+style "win7-menuitem" = "win7-menu" {
+  xthickness = 2
+  ythickness = 3
+  bg[SELECTED] = "#e2eefb"
+  fg[SELECTED] = @fg_color
+  fg[PRELIGHT] = @fg_color
+}
+
+style "win7-tooltip" = "win7-default" {
+  xthickness = 6
+  ythickness = 4
+  bg[NORMAL] = @tooltip_bg_color
+  fg[NORMAL] = @tooltip_fg_color
+}
+
+style "win7-progress" = "win7-default" {
+  bg[NORMAL]   = "#e6e6e6"
+  bg[SELECTED] = "#06b025"
+  fg[SELECTED] = @fg_color
+  fg[PRELIGHT] = @fg_color
+}
+
+style "win7-treeview" = "win7-default" {
+  base[SELECTED] = "#cfe3fc"
+  text[SELECTED] = @fg_color
+  base[ACTIVE]   = "#e5e5e5"
+  text[ACTIVE]   = @fg_color
+}
+
+style "win7-treeheader" = "win7-default" {
+  xthickness = 6
+  ythickness = 2
+  bg[NORMAL]   = "#fbfbfb"
+  bg[PRELIGHT] = "#e6f1fc"
+  fg[NORMAL]   = "#1e395b"
+}
+
+style "win7-scrollbar" = "win7-default" {
+  bg[NORMAL]   = "#e8e8e8"
+  bg[PRELIGHT] = "#c7e2f6"
+  bg[ACTIVE]   = "#f0f0f0"
+}
+
+style "win7-panel" = "win7-default" {
+  bg[NORMAL]   = "#1d3458"
+  fg[NORMAL]   = "#ffffff"
+  text[NORMAL] = "#ffffff"
+  bg[PRELIGHT] = "#4d6a96"
+  fg[PRELIGHT] = "#ffffff"
+  bg[ACTIVE]   = "#5d7cab"
+  fg[ACTIVE]   = "#ffffff"
+}
+
+class "GtkWidget"      style "win7-default"
+class "GtkButton"      style "win7-button"
+class "GtkMenuBar"     style "win7-menubar"
+class "GtkMenu"        style "win7-menu"
+class "GtkMenuItem"    style "win7-menuitem"
+class "GtkProgressBar" style "win7-progress"
+class "GtkTreeView"    style "win7-treeview"
+class "GtkScrollbar"   style "win7-scrollbar"
+widget "gtk-tooltip*"  style "win7-tooltip"
+widget_class "*.GtkTreeView.GtkButton" style "win7-treeheader"
+widget_class "*.GtkCTree.GtkButton"    style "win7-treeheader"
+widget_class "*.GtkList.GtkButton"     style "win7-treeheader"
+widget_class "*.GtkCList.GtkButton"    style "win7-treeheader"
+widget "*PanelWidget*"   style "win7-panel"
+widget "*PanelApplet*"   style "win7-panel"
+widget "*xfce4-panel*"   style "win7-panel"
+widget_class "*Xfce*Panel*" style "win7-panel"
