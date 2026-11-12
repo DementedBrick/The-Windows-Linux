@@ -5,7 +5,7 @@
 #   Menüeinträge (Windows-Namen), Autostart, Umgebungsvariablen
 #
 #   Benutzermodus: ~/.config      Systemmodus: /etc/xdg (alle Benutzer) UND /etc/skel (neue Benutzer –
-#   Distributionen wie Kali legen dort eigene XFCE-Konfiguration ab, die sonst Vorrang hätte)
+#   Manche Distributionen legen dort eigene XFCE-Konfiguration ab, die sonst Vorrang hätte)
 # Wird von install.sh gesourct; nutzt lib/common.sh.
 set -u
 
