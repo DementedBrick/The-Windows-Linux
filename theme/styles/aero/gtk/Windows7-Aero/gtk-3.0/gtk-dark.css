@@ -1,0 +1,2 @@
+/* Windows7-Aero hat keine Dunkelvariante; Anfragen nach "dark" liefern das normale Theme. */
+@import url("gtk.css");

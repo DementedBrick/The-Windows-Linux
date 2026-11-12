@@ -1,0 +1,26 @@
+# Automatisch erzeugt: doppelt große Fassung (tools/generate-assets.py)
+# Windows-Retro – xfwm4-Fensterdekoration im Windows-95-Stil (TheWindowsLinux)
+# Rahmen/Buttons werden pixelgenau von tools/generate-assets.py erzeugt (Original-Artwork).
+
+active_text_color=#ffffff
+inactive_text_color=#c0c0c0
+title_shadow_active=false
+title_shadow_inactive=false
+
+active_border_color=#000000
+inactive_border_color=#000000
+active_color_1=#000080
+active_mid_1=#000080
+inactive_color_1=#808080
+inactive_mid_1=#808080
+
+title_alignment=left
+full_width_title=true
+title_horizontal_offset=4
+title_vertical_offset_active=4
+title_vertical_offset_inactive=4
+button_offset=4
+button_spacing=0
+button_layout=O|HMC
+show_app_icon=true
+maximized_offset=0

@@ -1,0 +1,12 @@
+# Build-Artefakte
+iso/build/
+__pycache__/
+*.pyc
+.build/
+# Test-/Temporärdateien
+*.log
+*.swp
+iso/kali-build/
+*.iso
+*.qcow2
+*.vdi

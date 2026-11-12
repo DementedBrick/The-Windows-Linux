@@ -1,0 +1,19 @@
+# TheWindowsLinux – Kali-typische Werkzeuge aus den normalen Paketquellen von Debian/Ubuntu/Mint
+# Format:  KATEGORIE|Paket Paket Paket        (nicht vorhandene Pakete werden einzeln übersprungen)
+# Die Namen wurden gegen Ubuntu 24.04 geprüft; zusätzlich stehen Debian-/Kali-Namen darin, die dort existieren.
+# Auf Kali selbst werden stattdessen die offiziellen Metapakete (kali-linux-default usw.) installiert.
+#
+# Nicht in Debian/Ubuntu enthalten (nur Kali-Repository): metasploit-framework, burpsuite, responder,
+# crackmapexec/netexec, evil-winrm, bloodhound, beef-xss. Diese gibt es hier bewusst NICHT automatisch,
+# weil das Einbinden des Kali-Repositorys in eine fremde Distribution das System beschädigen kann.
+top10|nmap wireshark john hydra aircrack-ng sqlmap zaproxy
+information-gathering|nmap masscan arp-scan nbtscan netdiscover dnsrecon dnsenum fierce whois dnsutils theharvester recon-ng amass sublist3r enum4linux smbclient smbmap snmp onesixtyone ike-scan hping3 traceroute mtr-tiny whatweb dmitry snmpcheck smtp-user-enum
+vulnerability|nikto lynis sslscan sslyze testssl.sh wapiti skipfish
+web|sqlmap gobuster dirb wfuzz ffuf zaproxy commix cutycapt httrack mitmproxy cadaver
+passwords|john hashcat hydra medusa ncrack patator crunch cewl fcrackzip chntpw hashid hash-identifier ophcrack
+wireless|aircrack-ng wifite reaver pixiewps bully kismet mdk4 hostapd macchanger wavemon cowpatty hcxtools hcxdumptool
+sniffing-spoofing|wireshark tshark tcpdump ettercap-graphical bettercap dsniff tcpflow ngrep netsniff-ng proxychains4 tor socat ncat netcat-openbsd sslsplit
+reverse-engineering|radare2 gdb ltrace strace binwalk checksec ghidra apktool jadx nasm yara upx-ucl patchelf python3-pwntools ropper
+forensics|autopsy sleuthkit foremost scalpel testdisk bulk-extractor volatility3 libimage-exiftool-perl steghide stegseek chkrootkit rkhunter gddrescue dc3dd ewf-tools
+exploitation|exploitdb set impacket-scripts python3-impacket sipvicious thc-ipv6
+misc|git curl wget python3-pip python3-venv openssh-client sshpass ruby golang-go libpcap-dev hexedit xxd

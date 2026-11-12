@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=TheWindowsLinux – Anmeldesound
+Comment=Spielt den Anmeldeklang (kann in den Sitzungseinstellungen deaktiviert werden)
+Exec=@DATADIR@/bin/win7-sound logon
+Icon=win7-start
+Terminal=false
+Hidden=false
+NoDisplay=false
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+StartupNotify=false

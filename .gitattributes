@@ -1,0 +1,9 @@
+# Preserve Unix line endings for scripts and shell configuration.
+*.sh text eol=lf
+cmd/bin/* text eol=lf
+*.py text eol=lf
+
+# Keep documentation and CI files stable across contributor platforms.
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

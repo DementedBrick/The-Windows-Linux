@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – startet die "Eingabeaufforderung" (cmd.exe-artige bash)
+#
+#   cmd            interaktive Shell
+#   cmd /c BEFEHL  Befehl ausführen und beenden
+#   cmd /k BEFEHL  Befehl ausführen und Shell offen lassen
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+RC="$DATADIR/cmd/cmdrc.sh"
+[ -r "$RC" ] || { echo "cmd: $RC nicht gefunden" >&2; exit 1; }
+export WIN7_DATADIR="$DATADIR"
+
+case "${1:-}" in
+    /c|/C|-c)
+        shift
+        exec bash --rcfile "$RC" -ic "$*"
+        ;;
+    /k|/K|-k)
+        shift
+        tmp="$(mktemp "${TMPDIR:-/tmp}/win7cmd.XXXXXX")"
+        { printf 'rm -f -- %q\n' "$tmp"; printf '. %q\n' "$RC"; printf '%s\n' "$*"; } > "$tmp"   # löscht sich beim Einlesen selbst
+        exec bash --rcfile "$tmp" -i
+        ;;
+    /\?|-h|--help)
+        echo "cmd [/c Befehl | /k Befehl]"
+        exit 0
+        ;;
+esac
+exec bash --rcfile "$RC" -i

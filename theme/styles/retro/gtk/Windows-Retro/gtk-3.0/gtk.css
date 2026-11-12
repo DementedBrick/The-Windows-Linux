@@ -1,0 +1,671 @@
+/*
+ * Windows-Retro – GTK-3-Theme für TheWindowsLinux
+ * -----------------------------------------------
+ * Pixel-Look im Stil von Windows 95/98: 16-Farben-Palette (#c0c0c0-Grau,
+ * Navy-Titelleisten), harte 3D-Kanten statt Verläufen, keine Rundungen,
+ * gedithertes Scrollbalken-Muster, Pixel-Pfeile. Basis: eingebautes Adwaita
+ * (wird importiert und überschrieben). Original-CSS, keine Microsoft-Ressourcen.
+ */
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained.css");
+
+/* ---------- Palette ---------- */
+@define-color theme_bg_color #c0c0c0;
+@define-color theme_fg_color #000000;
+@define-color theme_base_color #ffffff;
+@define-color theme_text_color #000000;
+@define-color theme_selected_bg_color #000080;
+@define-color theme_selected_fg_color #ffffff;
+@define-color theme_unfocused_bg_color #c0c0c0;
+@define-color theme_unfocused_fg_color #000000;
+@define-color theme_unfocused_base_color #ffffff;
+@define-color theme_unfocused_text_color #000000;
+@define-color theme_unfocused_selected_bg_color #808080;
+@define-color theme_unfocused_selected_fg_color #ffffff;
+@define-color borders #808080;
+@define-color unfocused_borders #808080;
+@define-color insensitive_bg_color #c0c0c0;
+@define-color insensitive_fg_color #808080;
+@define-color insensitive_base_color #c0c0c0;
+@define-color warning_color #808000;
+@define-color error_color #800000;
+@define-color success_color #008000;
+@define-color content_view_bg #ffffff;
+@define-color wm_title #ffffff;
+@define-color wm_unfocused_title #c0c0c0;
+@define-color w95_light #ffffff;
+@define-color w95_light2 #dfdfdf;
+@define-color w95_face #c0c0c0;
+@define-color w95_shadow #808080;
+@define-color w95_dark #000000;
+@define-color w95_navy #000080;
+@define-color w95_teal #008080;
+
+/* ---------- Grundflächen ---------- */
+window, dialog, .background {
+  background-color: @w95_face;
+  background-image: none;
+  color: @theme_fg_color;
+}
+* {
+  border-radius: 0;
+  -gtk-outline-radius: 0;
+  outline-color: @w95_dark;
+  outline-style: dotted;
+  outline-width: 1px;
+  outline-offset: -3px;
+  -gtk-icon-shadow: none;
+  text-shadow: none;
+  -gtk-secondary-caret-color: @w95_navy;
+}
+label { color: inherit; }
+*:disabled { color: @w95_shadow; text-shadow: 1px 1px @w95_light; }
+
+/* ---------- Buttons (erhaben; gedrückt = versenkt, Inhalt 1px verschoben) ---------- */
+button {
+  min-height: 19px;
+  min-width: 16px;
+  padding: 1px 8px;
+  border: 1px solid;
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  background-color: @w95_face;
+  background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  color: @theme_fg_color;
+  transition: none;
+}
+button:hover { background-color: @w95_face; background-image: none; }
+button:active, button:checked {
+  border-color: @w95_dark @w95_light @w95_light @w95_dark;
+  box-shadow: inset 1px 1px @w95_shadow, inset -1px -1px @w95_light2;
+  background-color: @w95_face;
+  background-image: none;
+  padding: 2px 7px 0px 9px;
+}
+button:checked {
+  background-image: url("assets/dither.png");
+  background-repeat: repeat;
+}
+button:disabled {
+  color: @w95_shadow;
+  text-shadow: 1px 1px @w95_light;
+  background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+}
+button.default, button:focus {
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2, 0 0 0 1px @w95_dark;
+}
+button.flat {
+  border-color: transparent;
+  box-shadow: none;
+  background-color: transparent;
+  background-image: none;
+}
+button.flat:hover {
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  background-color: @w95_face;
+}
+button.flat:active, button.flat:checked {
+  border-color: @w95_dark @w95_light @w95_light @w95_dark;
+  box-shadow: inset 1px 1px @w95_shadow, inset -1px -1px @w95_light2;
+  background-color: @w95_face;
+}
+button.circular { border-radius: 0; }
+button.suggested-action, button.destructive-action { background-color: @w95_face; background-image: none; color: @theme_fg_color; }
+button.suggested-action { font-weight: bold; }
+
+combobox button.combo { padding-left: 4px; padding-right: 4px; }
+combobox arrow { -gtk-icon-source: url("assets/arrow-down.png"); min-width: 9px; min-height: 9px; }
+combobox window.popup, combobox menu { border: 1px solid @w95_dark; }
+
+spinbutton {
+  border: 1px solid;
+  border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2;
+  background-color: @theme_base_color;
+  background-image: none;
+  padding: 0;
+}
+spinbutton entry { border: none; box-shadow: none; min-height: 18px; }
+spinbutton button {
+  border-width: 1px; border-radius: 0; min-width: 14px; min-height: 8px; padding: 0 2px;
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  background-color: @w95_face;
+}
+spinbutton button.up { -gtk-icon-source: url("assets/arrow-up.png"); }
+spinbutton button.down { -gtk-icon-source: url("assets/arrow-down.png"); }
+
+/* ---------- Eingabefelder (versenkt) ---------- */
+entry {
+  min-height: 19px;
+  padding: 1px 3px;
+  border: 1px solid;
+  border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2;
+  background-color: @theme_base_color;
+  background-image: none;
+  color: @theme_text_color;
+  caret-color: @theme_text_color;
+}
+entry:focus, entry:hover { border-color: @w95_shadow @w95_light @w95_light @w95_shadow; box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2; }
+entry:disabled { background-color: @w95_face; color: @w95_shadow; }
+entry selection, entry selection:focus, textview text selection, textview text selection:focus, label selection {
+  background-color: @w95_navy; color: @w95_light;
+}
+entry progress { border: none; background-color: @w95_navy; }
+textview, textview text { background-color: @theme_base_color; color: @theme_text_color; }
+textview.view { border: none; }
+scrolledwindow { border: none; }
+scrolledwindow.frame, frame.flat scrolledwindow, .frame {
+  border: 1px solid;
+  border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2;
+}
+
+/* ---------- Menüleiste & Menüs ---------- */
+menubar, .menubar {
+  padding: 0;
+  background-color: @w95_face;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  color: @theme_fg_color;
+  min-height: 19px;
+}
+menubar > menuitem, .menubar > menuitem {
+  min-height: 15px;
+  padding: 2px 6px;
+  border: none;
+  color: @theme_fg_color;
+}
+menubar > menuitem:hover, .menubar > menuitem:hover {
+  background-color: @w95_navy;
+  background-image: none;
+  box-shadow: none;
+  color: @w95_light;
+}
+menubar > menuitem:hover label { color: @w95_light; }
+menu, .menu, .context-menu {
+  padding: 2px;
+  margin: 0;
+  background-color: @w95_face;
+  background-image: none;
+  border: 1px solid;
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  color: @theme_fg_color;
+}
+.csd menu, .csd .menu, .csd .context-menu { border-radius: 0; box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2; }
+menu menuitem, .menu menuitem, .context-menu menuitem {
+  min-height: 17px;
+  min-width: 40px;
+  padding: 1px 20px 1px 6px;
+  border: none;
+  color: @theme_fg_color;
+}
+menu menuitem:hover, .menu menuitem:hover, .context-menu menuitem:hover {
+  background-color: @w95_navy;
+  background-image: none;
+  color: @w95_light;
+}
+menu menuitem:hover *, .menu menuitem:hover * { color: @w95_light; }
+menu menuitem:disabled, .menu menuitem:disabled { color: @w95_shadow; text-shadow: 1px 1px @w95_light; }
+menu menuitem accelerator, .menu menuitem accelerator { color: inherit; }
+menu menuitem arrow, .menu menuitem arrow { -gtk-icon-source: url("assets/arrow-right.png"); min-width: 9px; min-height: 9px; }
+menu separator, .menu separator { margin: 3px 1px; min-height: 2px; background-color: @w95_shadow; box-shadow: 0 1px @w95_light; }
+menu menuitem check, menu menuitem radio { color: @theme_fg_color; min-width: 12px; min-height: 12px; }
+
+/* ---------- Toolbar ---------- */
+toolbar, .toolbar, .inline-toolbar {
+  padding: 1px 2px;
+  background-color: @w95_face;
+  background-image: none;
+  border-bottom: 1px solid @w95_shadow;
+  box-shadow: 0 1px @w95_light;
+}
+toolbar button, .toolbar button, .inline-toolbar button {
+  border-color: transparent;
+  box-shadow: none;
+  background-color: transparent;
+  min-height: 20px;
+  padding: 1px 4px;
+}
+toolbar button:hover, .toolbar button:hover {
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: none;
+  background-color: @w95_face;
+}
+toolbar button:active, toolbar button:checked, .toolbar button:checked {
+  border-color: @w95_dark @w95_light @w95_light @w95_dark;
+  background-image: url("assets/dither.png");
+  box-shadow: none;
+}
+toolbar separator { background-color: @w95_shadow; min-width: 1px; margin: 2px 3px; box-shadow: 1px 0 @w95_light; }
+
+/* ---------- Headerbar (CSD-Apps bekommen eine Navy-Titelleiste) ---------- */
+headerbar, .titlebar, .header-bar {
+  min-height: 26px;
+  padding: 2px 4px;
+  background-color: @w95_navy;
+  background-image: none;
+  border: 2px solid @w95_face;
+  border-bottom: 1px solid @w95_face;
+  box-shadow: inset 2px 2px @w95_light, 0 0 0 1px @w95_dark;
+  color: @w95_light;
+  font-weight: bold;
+}
+headerbar:backdrop, .titlebar:backdrop { background-color: @w95_shadow; color: @w95_face; }
+headerbar .title { font-weight: bold; }
+headerbar label, .titlebar label { color: inherit; }
+headerbar button, .titlebar button {
+  min-height: 12px;
+  min-width: 14px;
+  padding: 0 4px;
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  background-color: @w95_face;
+  background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  color: @theme_fg_color;
+  font-weight: normal;
+}
+headerbar button.titlebutton {
+  min-width: 14px; min-height: 12px; padding: 0; margin: 0;
+  color: @theme_fg_color;
+}
+headerbar button.titlebutton.close { margin-left: 2px; }
+headerbar button.titlebutton image { -gtk-icon-shadow: none; }
+headerbar entry { min-height: 18px; }
+.default-decoration { min-height: 0; padding: 2px; }
+decoration {
+  border-radius: 0;
+  box-shadow: 0 0 0 1px @w95_dark, 0 0 0 2px @w95_face, 0 0 0 3px @w95_face, 0 0 0 4px @w95_face;
+  margin: 6px;
+}
+decoration:backdrop { box-shadow: 0 0 0 1px @w95_dark, 0 0 0 4px @w95_face; }
+
+/* ---------- Tooltips (gelb mit schwarzem Rand) ---------- */
+tooltip, tooltip.background, .tooltip {
+  padding: 2px 4px;
+  border: 1px solid @w95_dark;
+  border-radius: 0;
+  background-color: #ffffe1;
+  background-image: none;
+  color: @w95_dark;
+  box-shadow: none;
+}
+tooltip * { background-color: transparent; color: @w95_dark; }
+
+/* ---------- Checkboxen / Radiobuttons ---------- */
+checkbutton, radiobutton { padding: 1px; }
+check, radio {
+  min-width: 11px;
+  min-height: 11px;
+  margin: 0 4px 0 0;
+  border: 1px solid;
+  border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2;
+  background-color: @theme_base_color;
+  background-image: none;
+  color: @theme_fg_color;
+  -gtk-icon-source: none;
+}
+check { border-radius: 0; }
+radio { border-radius: 50%; min-width: 11px; min-height: 11px; }
+check:hover, radio:hover { background-color: @theme_base_color; }
+check:active, radio:active { background-color: @w95_face; }
+check:checked { -gtk-icon-source: url("assets/check.png"); }
+check:indeterminate { -gtk-icon-source: url("assets/dither.png"); }
+radio:checked { -gtk-icon-source: url("assets/radio.png"); }
+check:disabled, radio:disabled { background-color: @w95_face; }
+menu check, menu radio { border: none; box-shadow: none; background: transparent; }
+
+/* ---------- Switch ---------- */
+switch {
+  border: 1px solid; border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2;
+  min-height: 18px; background-color: @theme_base_color; background-image: none; color: @theme_fg_color;
+}
+switch:checked { background-color: @w95_navy; color: @w95_light; }
+switch slider {
+  min-width: 24px; min-height: 16px; margin: 0;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  background-color: @w95_face; background-image: none;
+}
+
+/* ---------- Scrollbars (16 px, gedithert, Pixel-Pfeile) ---------- */
+scrollbar {
+  -GtkScrollbar-has-backward-stepper: true;
+  -GtkScrollbar-has-forward-stepper: true;
+  background-color: @w95_face;
+  background-image: url("assets/dither.png");
+  background-repeat: repeat;
+  border: none;
+}
+scrollbar trough { background-color: transparent; background-image: url("assets/dither.png"); background-repeat: repeat; border: none; min-width: 16px; min-height: 16px; }
+scrollbar slider {
+  min-width: 14px; min-height: 20px;
+  margin: 0;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  background-color: @w95_face;
+  background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+}
+scrollbar.horizontal slider { min-width: 20px; min-height: 14px; }
+scrollbar slider:hover, scrollbar slider:active { background-color: @w95_face; }
+scrollbar button {
+  min-width: 14px; min-height: 14px; padding: 0; margin: 0;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  background-color: @w95_face; background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  color: @theme_fg_color;
+}
+scrollbar button:active { border-color: @w95_shadow @w95_shadow @w95_shadow @w95_shadow; box-shadow: none; }
+scrollbar.vertical button.up { -gtk-icon-source: url("assets/arrow-up.png"); }
+scrollbar.vertical button.down { -gtk-icon-source: url("assets/arrow-down.png"); }
+scrollbar.horizontal button.up { -gtk-icon-source: url("assets/arrow-left.png"); }
+scrollbar.horizontal button.down { -gtk-icon-source: url("assets/arrow-right.png"); }
+scrollbar.vertical button.up:disabled { -gtk-icon-source: url("assets/arrow-up-disabled.png"); }
+scrollbar.vertical button.down:disabled { -gtk-icon-source: url("assets/arrow-down-disabled.png"); }
+scrollbar.horizontal button.up:disabled { -gtk-icon-source: url("assets/arrow-left-disabled.png"); }
+scrollbar.horizontal button.down:disabled { -gtk-icon-source: url("assets/arrow-right-disabled.png"); }
+scrollbar.overlay-indicator:not(.dragging):not(.hovering) { opacity: 1; }
+scrolledwindow junction { background-color: @w95_face; background-image: none; }
+
+/* ---------- Fortschrittsbalken (Navy-Blöcke) ---------- */
+progressbar trough {
+  min-height: 14px;
+  border: 1px solid; border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark, inset -1px -1px @w95_light2;
+  background-color: @theme_base_color; background-image: none;
+}
+progressbar progress {
+  min-height: 10px;
+  margin: 2px;
+  border: none;
+  background-color: @w95_navy;
+  background-image: repeating-linear-gradient(to right, @w95_navy 0px, @w95_navy 8px, transparent 8px, transparent 10px);
+}
+progressbar.vertical progress { background-image: repeating-linear-gradient(to bottom, @w95_navy 0px, @w95_navy 8px, transparent 8px, transparent 10px); }
+progressbar text { color: @theme_fg_color; }
+levelbar block.filled { background-color: @w95_navy; border-color: @w95_dark; }
+
+/* ---------- Schieberegler ---------- */
+scale trough {
+  min-height: 2px; min-width: 2px;
+  border: 1px solid; border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: inset 1px 1px @w95_dark;
+  background-color: @w95_face; background-image: none;
+}
+scale highlight { background-color: @w95_face; background-image: none; border: none; }
+scale slider {
+  min-width: 11px; min-height: 21px; margin: -8px -4px;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  background-color: @w95_face; background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+}
+scale.vertical slider { min-width: 21px; min-height: 11px; margin: -4px -8px; }
+scale marks, scale indicator { color: @theme_fg_color; }
+
+/* ---------- Notebook / Tabs ---------- */
+notebook > header { padding: 0; background-color: @w95_face; background-image: none; border: none; }
+notebook > header.top { box-shadow: inset 0 -1px @w95_light; }
+notebook > header tabs { margin: 0; }
+notebook > header tab {
+  min-height: 18px;
+  padding: 2px 8px;
+  margin: 2px 0 0 0;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_face @w95_light;
+  box-shadow: inset -1px 0 @w95_shadow;
+  background-color: @w95_face; background-image: none;
+  color: @theme_fg_color;
+  outline-offset: -4px;
+}
+notebook > header tab:hover { background-color: @w95_face; }
+notebook > header tab:checked {
+  margin: 0 -2px -1px -2px;
+  padding: 3px 10px 3px 10px;
+  border-bottom-color: @w95_face;
+  background-color: @w95_face;
+  box-shadow: inset -1px 0 @w95_shadow, inset 0 2px @w95_face;
+}
+notebook > stack:not(:only-child) {
+  background-color: @w95_face;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+}
+notebook > header.left tab { border-color: @w95_light @w95_face @w95_dark @w95_light; }
+notebook > header.right tab { border-color: @w95_light @w95_dark @w95_dark @w95_face; }
+notebook > header.bottom tab { border-color: @w95_face @w95_dark @w95_dark @w95_light; }
+
+/* ---------- Rahmen / Separator ---------- */
+frame > border { border: 1px solid @w95_shadow; box-shadow: inset 1px 1px @w95_light, 1px 1px @w95_light; border-radius: 0; }
+separator { background-color: @w95_shadow; min-width: 1px; min-height: 1px; box-shadow: 1px 1px @w95_light; }
+paned > separator { background-color: @w95_face; background-image: none; min-width: 4px; min-height: 4px; box-shadow: inset 1px 1px @w95_light, inset -1px -1px @w95_shadow; }
+
+/* ---------- Listen / Baumansicht / Iconview ---------- */
+treeview.view, .view, iconview {
+  background-color: @theme_base_color;
+  color: @theme_text_color;
+  border-radius: 0;
+  -GtkTreeView-grid-line-width: 1;
+  -GtkTreeView-tree-line-width: 1;
+}
+treeview.view:selected, treeview.view:selected:focus, .view:selected, iconview:selected, row:selected, row:selected:focus, list row:selected {
+  background-color: @w95_navy;
+  background-image: none;
+  color: @w95_light;
+  box-shadow: none;
+  border-radius: 0;
+  outline-color: @w95_light;
+}
+treeview.view:selected *, iconview:selected *, row:selected * { color: @w95_light; }
+treeview.view:hover, iconview:hover, row:hover { background-color: @theme_base_color; background-image: none; box-shadow: none; }
+treeview.view:selected:backdrop, .view:selected:backdrop, row:selected:backdrop { background-color: @w95_shadow; color: @w95_light; }
+treeview.view header button {
+  min-height: 17px;
+  padding: 1px 6px;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  background-color: @w95_face; background-image: none;
+  color: @theme_fg_color;
+}
+treeview.view header button:hover { background-color: @w95_face; }
+treeview.view header button:active { border-color: @w95_dark @w95_light @w95_light @w95_dark; box-shadow: inset 1px 1px @w95_shadow; }
+treeview.view expander { color: @theme_fg_color; -gtk-icon-source: url("assets/arrow-right.png"); }
+treeview.view expander:checked { -gtk-icon-source: url("assets/arrow-down.png"); }
+.sidebar, placessidebar, placessidebar.sidebar { background-color: @theme_base_color; border-right: 1px solid @w95_shadow; }
+placessidebar row { padding: 1px 0; }
+placessidebar row:selected { background-color: @w95_navy; color: @w95_light; }
+placessidebar row:hover { background-color: @theme_base_color; }
+list, list row { background-color: @theme_base_color; color: @theme_text_color; }
+list row:selected { background-color: @w95_navy; color: @w95_light; }
+rubberband, .rubberband { border: 1px dotted @w95_dark; background-color: transparent; }
+
+/* ---------- Statusleiste / Infoleisten ---------- */
+statusbar {
+  padding: 1px 3px; min-height: 20px;
+  background-color: @w95_face;
+  border: 1px solid; border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  color: @theme_fg_color;
+}
+infobar { border: 1px solid @w95_dark; background-color: #ffffe1; background-image: none; }
+infobar.info, infobar.question { background-color: @theme_base_color; }
+infobar.warning { background-color: #ffffe1; }
+infobar.error { background-color: #ffffe1; }
+infobar label { color: @w95_dark; }
+
+/* ---------- Dialoge ---------- */
+dialog .dialog-action-area, dialog .dialog-action-box { background-color: @w95_face; border-top: none; padding: 6px; }
+dialog .dialog-action-area button, messagedialog .dialog-action-area button { min-width: 75px; }
+messagedialog .titlebar { background-color: @w95_navy; }
+filechooser #pathbar_container button, filechooser .path-bar button { border-radius: 0; margin: 0; padding: 1px 6px; }
+filechooser placessidebar { background-color: @theme_base_color; }
+
+/* ---------- Popover ---------- */
+popover, popover.background {
+  padding: 2px;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  background-color: @w95_face; background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+}
+popover modelbutton:hover { background-color: @w95_navy; color: @w95_light; box-shadow: none; border-radius: 0; }
+popover modelbutton:hover * { color: @w95_light; }
+
+/* ---------- Calendar ---------- */
+calendar { background-color: @theme_base_color; border: 1px solid @w95_shadow; color: @theme_fg_color; }
+calendar:selected { background-color: @w95_navy; color: @w95_light; border-radius: 0; box-shadow: none; }
+calendar.header { background-color: @w95_face; border-bottom: 1px solid @w95_shadow; color: @theme_fg_color; }
+calendar.button { color: @theme_fg_color; }
+
+/* ---------- Links ---------- */
+*:link, link, label.link { color: #0000ff; }
+*:visited, link:visited { color: #800080; }
+
+/* ====================================================================
+ * XFCE-spezifische Bereiche
+ * ==================================================================== */
+
+/* Taskleiste (xfce4-panel): graue Leiste mit heller Oberkante */
+.xfce4-panel, .xfce4-panel.background, #xfce4-panel {
+  background-color: @w95_face;
+  background-image: none;
+  border-top: 1px solid @w95_light;
+  box-shadow: inset 0 1px @w95_light2;
+  color: @theme_fg_color;
+  text-shadow: none;
+}
+.xfce4-panel label, .xfce4-panel * { color: @theme_fg_color; text-shadow: none; }
+.xfce4-panel button, .xfce4-panel button.flat, .xfce4-panel button.toggle, .xfce4-panel #tasklist-button {
+  min-height: 18px;
+  padding: 0 4px;
+  margin: 2px 1px 2px 1px;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  background-color: @w95_face; background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  color: @theme_fg_color;
+  transition: none;
+}
+.xfce4-panel button:hover, .xfce4-panel #tasklist-button:hover { background-color: @w95_face; background-image: none; }
+.xfce4-panel button:checked, .xfce4-panel button:active, .xfce4-panel #tasklist-button:checked, .xfce4-panel #tasklist-button:active {
+  border-color: @w95_dark @w95_light @w95_light @w95_dark;
+  box-shadow: inset 1px 1px @w95_shadow, inset -1px -1px @w95_light2;
+  background-image: url("assets/dither.png");
+  background-repeat: repeat;
+  padding: 1px 3px 0 5px;
+}
+.xfce4-panel #tasklist-button, .xfce4-panel .tasklist button { padding: 0 6px; min-width: 110px; }
+.xfce4-panel #tasklist-button:checked, .xfce4-panel .tasklist button:checked { padding: 1px 5px 0 7px; }
+.xfce4-panel #tasklist-button label, .xfce4-panel .tasklist button label { padding-left: 2px; }
+.xfce4-panel #tasklist-button:checked label, .xfce4-panel .tasklist button:checked label { font-weight: bold; }
+/* Start-Button: erhaben, fett */
+.xfce4-panel #whiskermenu-button, .xfce4-panel #whiskermenu-button:hover {
+  padding: 0 6px 0 3px;
+  margin: 2px 2px 2px 2px;
+  font-weight: bold;
+  border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  background-color: @w95_face; background-image: none;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+}
+.xfce4-panel #whiskermenu-button:checked, .xfce4-panel #whiskermenu-button:active {
+  border-color: @w95_dark @w95_light @w95_light @w95_dark;
+  box-shadow: inset 1px 1px @w95_shadow, inset -1px -1px @w95_light2;
+  background-image: url("assets/dither.png");
+}
+.xfce4-panel #whiskermenu-button label { font-weight: bold; padding-left: 3px; }
+/* Starter-Symbole: flach, ohne Rahmen (wie Schnellstartleiste) */
+.xfce4-panel #launcher-button, .xfce4-panel #launcher-arrow { border-color: transparent; box-shadow: none; background-color: transparent; background-image: none; }
+.xfce4-panel #launcher-button:hover { border-color: @w95_light @w95_dark @w95_dark @w95_light; }
+.xfce4-panel #launcher-button:active { border-color: @w95_dark @w95_light @w95_light @w95_dark; }
+/* Systray + Uhr: versenkter Bereich */
+.xfce4-panel #clock-button, .xfce4-panel .clock, .xfce4-panel #clock-button:hover {
+  padding: 0 8px;
+  margin: 2px 2px 2px 0;
+  border: 1px solid; border-color: @w95_shadow @w95_light @w95_light @w95_shadow;
+  box-shadow: none;
+  background-color: @w95_face; background-image: none;
+  font-weight: normal;
+}
+.xfce4-panel #showdesktop-button, .xfce4-panel button.showdesktop { min-width: 6px; padding: 0 1px; }
+.xfce4-panel separator { background-color: @w95_shadow; box-shadow: 1px 0 @w95_light; margin: 3px 1px; min-width: 1px; }
+.xfce4-panel menu, .xfce4-panel .menu { color: @theme_fg_color; }
+.xfce4-panel tooltip, .xfce4-panel tooltip * { color: @w95_dark; }
+
+/* Whisker-Menü (Startmenü): graues Fenster mit erhabenem Rand */
+#whiskermenu-window, #whiskermenu-window.background {
+  background-color: @w95_face;
+  background-image: none;
+  border: 1px solid; border-color: @w95_light @w95_dark @w95_dark @w95_light;
+  border-radius: 0;
+  box-shadow: inset -1px -1px @w95_shadow, inset 1px 1px @w95_light2;
+  color: @theme_fg_color;
+}
+#whiskermenu-window * { color: @theme_fg_color; text-shadow: none; }
+#whiskermenu-window entry { background-color: @theme_base_color; }
+#whiskermenu-window treeview.view, #whiskermenu-window scrolledwindow { background-color: @theme_base_color; }
+#whiskermenu-window treeview.view:selected { background-color: @w95_navy; color: @w95_light; }
+#whiskermenu-window treeview.view:selected * { color: @w95_light; }
+#whiskermenu-window button { min-height: 20px; }
+#whiskermenu-window button.flat { border-color: transparent; box-shadow: none; background-color: transparent; }
+#whiskermenu-window button.flat:hover, #whiskermenu-window button.flat:checked { background-color: @w95_navy; color: @w95_light; border-color: transparent; box-shadow: none; }
+#whiskermenu-window button.flat:hover *, #whiskermenu-window button.flat:checked * { color: @w95_light; }
+
+/* Desktop-Icons (xfdesktop): weiße Beschriftung ohne Schatten/Kasten, Auswahl Navy */
+XfdesktopIconView.view, .XfdesktopIconView, #XfdesktopIconView {
+  -XfdesktopIconView-label-alpha: 0;
+  -XfdesktopIconView-shadow-x-offset: 0;
+  -XfdesktopIconView-shadow-y-offset: 0;
+  -XfdesktopIconView-selected-shadow-x-offset: 0;
+  -XfdesktopIconView-selected-shadow-y-offset: 0;
+  -XfdesktopIconView-cell-spacing: 2;
+  -XfdesktopIconView-cell-padding: 4;
+  -XfdesktopIconView-cell-text-width-proportion: 2.2;
+  background-color: transparent;
+  color: @w95_light;
+  text-shadow: none;
+  border-radius: 0;
+}
+XfdesktopIconView.view:active, .XfdesktopIconView:active, XfdesktopIconView.view:selected, .XfdesktopIconView:selected {
+  background-color: @w95_navy;
+  box-shadow: none;
+  color: @w95_light;
+}
+XfdesktopIconView.view:hover, .XfdesktopIconView:hover { background-color: transparent; }
+.xfce4-desktop { background-color: @w95_teal; }
+.xfdesktop-icon-view { color: @w95_light; }
+
+/* Benachrichtigungen (xfce4-notifyd): gelbe Sprechblase mit schwarzem Rand */
+#XfceNotifyWindow, .xfce4-notifyd {
+  background-color: #ffffe1;
+  background-image: none;
+  border: 1px solid @w95_dark;
+  border-radius: 0;
+  color: @w95_dark;
+  box-shadow: none;
+}
+#XfceNotifyWindow label, .xfce4-notifyd label { color: @w95_dark; }
+#XfceNotifyWindow #summary, .xfce4-notifyd #summary { font-weight: bold; }
+#XfceNotifyWindow button, .xfce4-notifyd button { background-color: @w95_face; }
+
+/* Thunar (Explorer-Look) */
+.thunar .sidebar, .thunar .shortcuts-pane { background-color: @theme_base_color; }
+.thunar statusbar { min-height: 20px; }
+.thunar toolbar, .thunar .toolbar { background-color: @w95_face; }
+.thunar .location-bar entry, .thunar #location-bar entry { min-height: 20px; }
+
+/* Terminal: Menü schlicht */
+.xfce4-terminal menubar { background-color: @w95_face; }
+
+/* Verschiedenes */
+.osd { background-color: @w95_face; color: @theme_fg_color; border: 1px solid @w95_dark; border-radius: 0; box-shadow: none; }
+.app-notification { background-color: #ffffe1; border: 1px solid @w95_dark; color: @w95_dark; }
+expander title > arrow { -gtk-icon-source: url("assets/arrow-right.png"); min-width: 9px; min-height: 9px; }
+expander title:checked > arrow, expander:checked title > arrow { -gtk-icon-source: url("assets/arrow-down.png"); }

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – alles größer oder kleiner machen (Taskleiste, Icons, Schrift, Fensterrahmen,
+# Startmenü, Desktop-Symbole, Mauszeiger, Eingabeaufforderung). Wirkt sofort in der laufenden XFCE-Sitzung
+# und wird für die nächste Anmeldung gespeichert.
+#
+#   win7-scale 150        auf 150 % vergrößern   (erlaubt: 100 125 150 175 200)
+#   win7-scale status     aktuelle Größe anzeigen
+#   win7-scale reset      zurück auf 100 %
+#   win7-scale --apply    gespeicherte Größe erneut anwenden (nutzt die Ersteinrichtung beim Anmelden)
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}"
+SAVE="$CONF/thewindowslinux/scale"
+
+# Grundwerte des Stils (100 %) aus style.conf; Ersatzwerte = Retro
+STYLE=retro; WMTHEME=Windows-Retro; CURSORSIZE=32; PANELSIZE=28; PANELICON=16; DESKICON=32
+MONOFONT=Monospace; MONOFONTSIZE=10
+if [ -r "$DATADIR/style.conf" ]; then
+    while IFS='=' read -r key val; do
+        case "$key" in
+            STYLE|WMTHEME|CURSORSIZE|PANELSIZE|PANELICON|DESKICON|MONOFONT|MONOFONTSIZE) printf -v "$key" '%s' "$val" ;;
+        esac
+    done < "$DATADIR/style.conf"
+fi
+
+usage() { sed -n '2,10p' "$SELF" | sed 's/^# \{0,1\}//'; }
+have() { command -v "$1" >/dev/null 2>&1; }
+q() { xfconf-query "$@" 2>/dev/null; }
+
+pct=""
+case "${1:-status}" in
+    status) cur="$(cat "$SAVE" 2>/dev/null || echo 100)"; echo "Aktuelle Größe: $cur %   (ändern: win7-scale 100|125|150|175|200)"; exit 0 ;;
+    reset) pct=100 ;;
+    --apply) pct="$(cat "$SAVE" 2>/dev/null || true)"; [ -n "$pct" ] || exit 0 ;;
+    -h|--help) usage; exit 0 ;;
+    *) pct="${1%\%}" ;;
+esac
+case "$pct" in 100|125|150|175|200) ;; *) echo "Ungültige Größe »$pct«. Erlaubt: 100 125 150 175 200" >&2; exit 2 ;; esac
+
+# Ganzzahlig skalieren und auf vorhandene Icon-Größen runden
+sc() { echo $(( ($1 * pct + 50) / 100 )); }
+snap_icon() {  # auf die nächstgrößere vorhandene Icon-Größe (scharfe Darstellung, kein Unschärfe-Zoom)
+    local want="$1" s sizes="16 22 24 32 48 64 96 128"
+    # Retro-Icons sind 16- bzw. 32-px-Pixelbilder (22/24 px = 16 px mit Rand) → nur ganzzahlige Vielfache nehmen
+    [ "$STYLE" = retro ] && sizes="16 32 48 64 96 128"
+    for s in $sizes; do [ "$s" -ge "$want" ] && { echo "$s"; return; }; done
+    echo 128
+}
+dpi=$(( 96 * pct / 100 ))
+panel=$(sc "$PANELSIZE"); picon=$(snap_icon "$(sc "$PANELICON")"); dicon=$(snap_icon "$(sc "$DESKICON")")
+cursor=$(sc "$CURSORSIZE"); [ "$cursor" -gt 64 ] && cursor=64
+wm="$WMTHEME"; [ "$pct" -ge 150 ] && wm="$WMTHEME-2x"
+# Whisker-Menü: Icongrößen sind Stufen (1=16, 2=24, 3=32, 4=38, 5=48 px)
+case "$pct" in 100) wl=2; wc=1 ;; 125) wl=3; wc=2 ;; 150) wl=4; wc=2 ;; 175) wl=4; wc=3 ;; 200) wl=5; wc=3 ;; esac
+menuw=$(sc 420); menuh=$(sc 480); [ "$STYLE" = aero ] && { menuw=$(sc 460); menuh=$(sc 560); }
+
+mkdir -p "$(dirname "$SAVE")"
+echo "$pct" > "$SAVE"
+
+if ! have xfconf-query || ! q -c xsettings -l >/dev/null; then
+    echo "Gespeichert: $pct %. Wird bei der nächsten Anmeldung in XFCE angewendet."
+    exit 0
+fi
+
+# Schrift (über DPI: wirkt in allen GTK-Programmen, Fenstertiteln und im Panel)
+q -c xsettings -p /Xft/DPI -n -t int -s "$dpi"
+q -c xsettings -p /Gtk/CursorThemeSize -n -t int -s "$cursor"
+# Taskleiste
+for p in $(q -c xfce4-panel -l | grep -E '^/panels/panel-[0-9]+/size$'); do q -c xfce4-panel -p "$p" -s "$panel"; done
+for p in $(q -c xfce4-panel -l | grep -E '^/panels/panel-[0-9]+/icon-size$'); do q -c xfce4-panel -p "$p" -s "$picon"; done
+for p in $(q -c xfce4-panel -l | grep -E '^/plugins/plugin-[0-9]+$'); do
+    [ "$(q -c xfce4-panel -p "$p")" = systray ] && q -c xfce4-panel -p "$p/icon-size" -n -t int -s "$picon"
+done
+# Desktop-Symbole und Fensterrahmen
+q -c xfce4-desktop -p /desktop-icons/icon-size -n -t uint -s "$dicon"
+q -c xfce4-desktop -p /desktop-icons/use-custom-font-size -n -t bool -s false
+if [ -d "$HOME/.themes/$wm/xfwm4" ] || [ -d "/usr/share/themes/$wm/xfwm4" ] || [ -d "${XDG_DATA_HOME:-$HOME/.local/share}/themes/$wm/xfwm4" ]; then
+    q -c xfwm4 -p /general/theme -n -t string -s "$wm"
+else
+    q -c xfwm4 -p /general/theme -n -t string -s "$WMTHEME"
+fi
+# Eingabeaufforderung (xfce4-terminal)
+q -c xfce4-terminal -p /font-name -n -t string -s "$MONOFONT $(sc "$MONOFONTSIZE")"
+q -c xfce4-terminal -p /font-use-system -n -t bool -s false
+
+# Startmenü (Whisker-Menü ≥ 2.x speichert seine Einstellungen im Panel-Kanal von xfconf und übernimmt sie sofort)
+for p in $(q -c xfce4-panel -l | grep -E '^/plugins/plugin-[0-9]+$'); do
+    [ "$(q -c xfce4-panel -p "$p")" = whiskermenu ] || continue
+    q -c xfce4-panel -p "$p/menu-width" -n -t int -s "$menuw"
+    q -c xfce4-panel -p "$p/menu-height" -n -t int -s "$menuh"
+    q -c xfce4-panel -p "$p/launcher-icon-size" -n -t int -s "$wl"
+    q -c xfce4-panel -p "$p/category-icon-size" -n -t int -s "$wc"
+done
+# Ältere Whisker-Versionen lesen stattdessen die Datei whiskermenu-<N>.rc (nur vorhanden, wenn sie noch nicht übernommen wurde)
+for RC in "$CONF"/xfce4/panel/whiskermenu-*.rc; do
+    [ -f "$RC" ] || continue
+    sed -i -e "s/^launcher-icon-size=.*/launcher-icon-size=$wl/" -e "s/^category-icon-size=.*/category-icon-size=$wc/" \
+           -e "s/^menu-width=.*/menu-width=$menuw/" -e "s/^menu-height=.*/menu-height=$menuh/" "$RC"
+done
+xfdesktop --reload >/dev/null 2>&1 || true
+
+echo "Größe: $pct %  (Schrift-DPI $dpi, Taskleiste $panel px, Panel-Icons $picon px, Desktop-Icons $dicon px, Mauszeiger $cursor px, Fensterrahmen $wm)"
+echo "Neue Fenster und Mauszeiger übernehmen die Größe sofort; bereits offene Programme ggf. neu starten."

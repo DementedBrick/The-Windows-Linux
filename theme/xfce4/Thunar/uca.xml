@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+<action>
+	<icon>win7-cmd</icon>
+	<name>Eingabeaufforderung hier öffnen</name>
+	<submenu></submenu>
+	<unique-id>1700000000000001-1</unique-id>
+	<command>@CMD_LAUNCH@ --working-directory=%f</command>
+	<description>cmd.exe-artige Shell in diesem Ordner starten</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+<action>
+	<icon>utilities-terminal</icon>
+	<name>Terminal (bash) hier öffnen</name>
+	<submenu></submenu>
+	<unique-id>1700000000000002-1</unique-id>
+	<command>exo-open --working-directory %f --launch TerminalEmulator</command>
+	<description>Normales Linux-Terminal in diesem Ordner starten</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+<action>
+	<icon>edit-find</icon>
+	<name>Hier suchen</name>
+	<submenu></submenu>
+	<unique-id>1700000000000003-1</unique-id>
+	<command>catfish --path=%f</command>
+	<description>Dateien in diesem Ordner suchen</description>
+	<range></range>
+	<patterns>*</patterns>
+	<startup-notify/>
+	<directories/>
+</action>
+</actions>

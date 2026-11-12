@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TheWindowsLinux: "Ausführen"-Dialog (Win+R) kompakt, mit Befehlsverlauf -->
+<channel name="xfce4-appfinder" version="1.0">
+  <property name="always-center" type="bool" value="true"/>
+  <property name="icon-view" type="bool" value="true"/>
+  <property name="text-beside-icons" type="bool" value="false"/>
+  <property name="item-icon-size" type="uint" value="3"/>
+  <property name="category-icon-size" type="uint" value="1"/>
+  <property name="hide-category-pane" type="bool" value="false"/>
+  <property name="hide-window-decorations" type="bool" value="false"/>
+  <property name="close-after-execute" type="bool" value="true"/>
+  <property name="enable-service" type="bool" value="true"/>
+  <property name="remember-category" type="bool" value="false"/>
+  <property name="single-window" type="bool" value="true"/>
+  <property name="sort-by-frecency" type="bool" value="true"/>
+  <property name="last" type="empty">
+    <property name="window-width" type="int" value="520"/>
+    <property name="window-height" type="int" value="360"/>
+  </property>
+</channel>

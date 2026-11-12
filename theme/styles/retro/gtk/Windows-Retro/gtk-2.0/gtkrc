@@ -1,0 +1,107 @@
+# Windows-Retro – GTK-2-Theme im Windows-95-Stil (TheWindowsLinux)
+# Die GTK-2-Standard-Engine zeichnet bereits Win95-artige Kanten; hier nur Farben/Maße.
+
+gtk-color-scheme = "bg_color:#c0c0c0\nfg_color:#000000\nbase_color:#ffffff\ntext_color:#000000\nselected_bg_color:#000080\nselected_fg_color:#ffffff\ntooltip_bg_color:#ffffe1\ntooltip_fg_color:#000000\nlink_color:#0000ff"
+
+gtk-button-images = 1
+gtk-menu-images = 1
+gtk-toolbar-style = GTK_TOOLBAR_ICONS
+gtk-xft-antialias = 0
+gtk-xft-hinting = 1
+gtk-xft-hintstyle = "hintfull"
+gtk-xft-rgba = "none"
+gtk-icon-sizes = "gtk-menu=16,16:gtk-button=16,16:gtk-small-toolbar=16,16:gtk-large-toolbar=24,24"
+
+style "retro-default" {
+  xthickness = 2
+  ythickness = 2
+
+  GtkButton::default-border         = { 1, 1, 1, 1 }
+  GtkButton::default-outside-border = { 0, 0, 0, 0 }
+  GtkButton::child-displacement-x   = 1
+  GtkButton::child-displacement-y   = 1
+  GtkButton::focus-padding          = 1
+  GtkCheckButton::indicator-size    = 13
+  GtkRadioButton::indicator-size    = 13
+  GtkRange::trough-border           = 0
+  GtkRange::slider-width            = 16
+  GtkRange::stepper-size            = 16
+  GtkScrollbar::min-slider-length   = 20
+  GtkScrollbar::has-backward-stepper = 1
+  GtkScrollbar::has-forward-stepper  = 1
+  GtkScale::slider-length           = 11
+  GtkScale::slider-width            = 21
+  GtkPaned::handle-size             = 4
+  GtkMenuBar::internal-padding      = 0
+  GtkMenuBar::shadow-type           = GTK_SHADOW_NONE
+  GtkMenu::horizontal-padding       = 2
+  GtkMenu::vertical-padding         = 2
+  GtkMenuItem::horizontal-padding   = 6
+  GtkToolbar::shadow-type           = GTK_SHADOW_NONE
+  GtkToolbar::internal-padding      = 1
+  GtkTreeView::expander-size        = 9
+  GtkTreeView::odd-row-color        = "#ffffff"
+  GtkExpander::expander-size        = 9
+  GtkNotebook::tab-overlap          = 2
+  GtkWidget::focus-line-width       = 1
+  GtkWidget::focus-padding          = 1
+  GtkWidget::link-color             = @link_color
+  GtkWidget::visited-link-color     = "#800080"
+  GtkWidget::interior-focus         = 1
+
+  bg[NORMAL]        = @bg_color
+  bg[PRELIGHT]      = @bg_color
+  bg[ACTIVE]        = "#b0b0b0"
+  bg[SELECTED]      = @selected_bg_color
+  bg[INSENSITIVE]   = @bg_color
+
+  fg[NORMAL]        = @fg_color
+  fg[PRELIGHT]      = @fg_color
+  fg[ACTIVE]        = @fg_color
+  fg[SELECTED]      = @selected_fg_color
+  fg[INSENSITIVE]   = "#808080"
+
+  base[NORMAL]      = @base_color
+  base[PRELIGHT]    = @selected_bg_color
+  base[ACTIVE]      = "#808080"
+  base[SELECTED]    = @selected_bg_color
+  base[INSENSITIVE] = @bg_color
+
+  text[NORMAL]      = @text_color
+  text[PRELIGHT]    = @selected_fg_color
+  text[ACTIVE]      = @selected_fg_color
+  text[SELECTED]    = @selected_fg_color
+  text[INSENSITIVE] = "#808080"
+}
+
+style "retro-menu" = "retro-default" {
+  bg[PRELIGHT]   = @selected_bg_color
+  fg[PRELIGHT]   = @selected_fg_color
+  text[PRELIGHT] = @selected_fg_color
+}
+
+style "retro-tooltip" = "retro-default" {
+  xthickness = 4
+  ythickness = 2
+  bg[NORMAL] = @tooltip_bg_color
+  fg[NORMAL] = @tooltip_fg_color
+}
+
+style "retro-progress" = "retro-default" {
+  bg[NORMAL]   = @base_color
+  bg[SELECTED] = @selected_bg_color
+}
+
+style "retro-panel" = "retro-default" {
+  bg[NORMAL]   = @bg_color
+  fg[NORMAL]   = @fg_color
+  text[NORMAL] = @fg_color
+}
+
+class "GtkWidget"      style "retro-default"
+class "GtkMenu"        style "retro-menu"
+class "GtkMenuItem"    style "retro-menu"
+class "GtkProgressBar" style "retro-progress"
+widget "gtk-tooltip*"  style "retro-tooltip"
+widget "*PanelWidget*" style "retro-panel"
+widget "*xfce4-panel*" style "retro-panel"

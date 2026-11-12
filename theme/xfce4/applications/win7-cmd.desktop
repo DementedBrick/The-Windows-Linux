@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Eingabeaufforderung
+Name[de]=Eingabeaufforderung
+Comment=cmd.exe-artige Shell (TheWindowsLinux Terminal-Overlay)
+Exec=@CMD_LAUNCH@
+Icon=win7-cmd
+Terminal=false
+StartupNotify=true
+Categories=System;TerminalEmulator;Utility;
+Keywords=cmd;dos;terminal;shell;konsole;

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Windows7-Aero
+Comment=Windows-7-artiges Aero-Theme für TheWindowsLinux (Original-Artwork)
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=Windows7-Aero
+MetacityTheme=Windows7-Aero
+IconTheme=Windows7-Aero
+CursorTheme=DMZ-White
+ButtonLayout=menu:minimize,maximize,close
