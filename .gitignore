@@ -6,7 +6,6 @@ __pycache__/
 # Test-/Temporärdateien
 *.log
 *.swp
-iso/kali-build/
 *.iso
 *.qcow2
 *.vdi
