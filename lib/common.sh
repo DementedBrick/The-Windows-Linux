@@ -36,7 +36,7 @@ w7_detect_distro() {
         W7_DISTRO_NAME="${PRETTY_NAME:-$W7_DISTRO_ID}"
     fi
     case "${W7_DISTRO_ID} ${W7_DISTRO_LIKE}" in
-        *debian*|*ubuntu*|*linuxmint*|*pop*|*elementary*|*zorin*|*kali*|*raspbian*|*mx*) W7_DISTRO=debian; W7_PKG=apt ;;
+        *debian*|*ubuntu*|*linuxmint*|*pop*|*elementary*|*zorin*|*raspbian*|*mx*) W7_DISTRO=debian; W7_PKG=apt ;;
         *fedora*|*rhel*|*centos*|*rocky*|*alma*|*nobara*) W7_DISTRO=fedora; W7_PKG=dnf ;;
         *arch*|*manjaro*|*endeavouros*|*garuda*|*artix*|*cachyos*) W7_DISTRO=arch; W7_PKG=pacman ;;
         *suse*) W7_DISTRO=suse; W7_PKG=zypper ;;
