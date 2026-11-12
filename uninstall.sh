@@ -100,7 +100,7 @@ fi
 
 # 2. Bekannte Pfade älterer Versionen (1.0/1.1 protokollierten nicht alles)
 if [ $LEGACY -eq 1 ] || [ ! -f "$LIST" ]; then
-    for t in Windows-Retro Windows7-Aero; do
+    for t in Windows-Retro Windows7-Aero Windows-Retro-2x Windows7-Aero-2x; do
         w7_rm_rf "$W7_THEMEDIR/$t"; w7_rm_rf "$W7_ICONDIR/$t"
     done
     for s in 16 22 24 32 48 64 96 128 256; do
@@ -118,7 +118,7 @@ if [ $LEGACY -eq 1 ] || [ ! -f "$LIST" ]; then
     for f in "$W7_SRC"/theme/xfce4/applications/*.desktop; do [ -e "$W7_APPDIR/$(basename "$f")" ] && w7_rm_rf "$W7_APPDIR/$(basename "$f")"; done
     for f in "$W7_SRC"/theme/xfce4/autostart/*.desktop; do [ -e "$W7_AUTOSTART/$(basename "$f")" ] && w7_rm_rf "$W7_AUTOSTART/$(basename "$f")"; done
     [ -d "$W7_DATADIR" ] && w7_rm_rf "$W7_DATADIR"
-    for b in cmd cmd.exe eingabeaufforderung win7-terminal win7-sound win7-firstrun win7-wallpaper win7-doctor; do
+    for b in cmd cmd.exe eingabeaufforderung win7-terminal win7-sound win7-firstrun win7-wallpaper win7-doctor win7-scale; do
         [ -L "$W7_BINDIR/$b" ] && w7_rm_rf "$W7_BINDIR/$b"
     done
     if [ "$W7_MODE" = system ]; then w7_rm_rf /usr/share/sounds/windows7; else w7_rm_rf "${XDG_DATA_HOME:-$HOME/.local/share}/sounds/windows7"; fi

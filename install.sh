@@ -48,6 +48,8 @@ Werkzeuge und Absicherung (optional)
                       headless oder eine Kategorie wie web/wireless/passwords). Sonst: die Kali-typischen Werkzeuge
                       aus den normalen Paketquellen (Stufe top10 = die wichtigsten, sonst alle verfügbaren).
   --kali-level STUFE  wie oben, getrennt angegeben
+  --scale PROZENT     alles größer: 100 (Standard) 125 150 175 200 – Taskleiste, Icons, Schrift, Fenster, Mauszeiger.
+                      Später jederzeit änderbar: win7-scale 150
   --harden            System absichern: Firewall (ufw), automatische Sicherheitsupdates, Kernel-Einstellungen,
                       SSH-Härtung                                                       (nur --system)
 
@@ -67,6 +69,7 @@ W7_WITH_SELAWIK=0
 W7_WITH_KALI=0
 W7_KALI_LEVEL=default
 W7_HARDEN=0
+W7_SCALE=
 W7_CMD_EVERYWHERE=0
 W7_WITH_LOGIN=0
 W7_WITH_GRUB=0
@@ -89,6 +92,8 @@ while [ $# -gt 0 ]; do
         --kali-level) W7_WITH_KALI=1; W7_KALI_LEVEL="${2:-default}"; shift ;;
         --kali-level=*) W7_WITH_KALI=1; W7_KALI_LEVEL="${1#*=}" ;;
         --harden) W7_HARDEN=1 ;;
+        --scale) W7_SCALE="${2:-}"; shift ;;
+        --scale=*) W7_SCALE="${1#*=}" ;;
         --cmd-everywhere) W7_CMD_EVERYWHERE=1 ;;
         --with-login) W7_WITH_LOGIN=1 ;;
         --with-grub) W7_WITH_GRUB=1 ;;
@@ -101,7 +106,8 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-export W7_MODE W7_STYLE W7_NO_PACKAGES W7_WITH_SELAWIK W7_WITH_KALI W7_KALI_LEVEL W7_HARDEN W7_CMD_EVERYWHERE W7_WITH_LOGIN W7_WITH_GRUB W7_WITH_PLYMOUTH W7_QUIET
+case "${W7_SCALE:-}" in ""|100|125|150|175|200) ;; *) w7_die "--scale erlaubt 100, 125, 150, 175 oder 200 (nicht »$W7_SCALE«)." ;; esac
+export W7_SCALE W7_MODE W7_STYLE W7_NO_PACKAGES W7_WITH_SELAWIK W7_WITH_KALI W7_KALI_LEVEL W7_HARDEN W7_CMD_EVERYWHERE W7_WITH_LOGIN W7_WITH_GRUB W7_WITH_PLYMOUTH W7_QUIET
 
 # ---------------------------------------------------------------------------
 w7_detect_distro
@@ -153,6 +159,18 @@ w7_step_plymouth
 w7_step_harden
 w7_step_kali
 
+# Größe: im Benutzermodus für diesen Benutzer, im Systemmodus als Vorgabe für neue Benutzer (/etc/skel)
+if [ -n "$W7_SCALE" ]; then
+    tmpsc="$(mktemp)"; echo "$W7_SCALE" > "$tmpsc"
+    if [ "$W7_MODE" = system ]; then w7_install "$tmpsc" "$W7_SKEL/.config/thewindowslinux/scale"
+    else
+        mkdir -p "$W7_STATE"; cp "$tmpsc" "$W7_STATE/scale"
+        w7_xfce_running && "$W7_DATADIR/bin/win7-scale" "$W7_SCALE" >/dev/null 2>&1 || true
+    fi
+    rm -f "$tmpsc"
+    w7_ok "Größe $W7_SCALE % eingestellt (ändern: win7-scale)."
+fi
+
 # Installationsprotokoll
 tmpinfo="$(mktemp)"
 {
@@ -188,5 +206,6 @@ cat <<EOF
   Anderer Stil ..... $W7_SRC/install.sh --style $( [ "$W7_STYLE" = retro ] && printf 'aero' || printf 'retro') --no-packages$( [ "$W7_MODE" = system ] && printf ' --system')
   Systemprüfung .... win7-doctor   (Updates, Firewall, offene Ports, Konten, Kernel – nur lesend; mit sudo gründlicher)
   Hintergrund ...... win7-wallpaper list
+  Größe ............ win7-scale 150   (100, 125, 150, 175, 200)
   Deinstallation ... $W7_SRC/uninstall.sh$( [ "$W7_MODE" = system ] && printf ' --system')
 EOF

@@ -1283,7 +1283,7 @@ def retro_gen_cursors(out, theme_name="Windows-Retro"):
     for name, (hx, hy, rows) in CURSOR_SPRITES.items():
         cfg = os.path.join(tmp, name + ".cfg")
         with open(cfg, "w") as fh:
-            for scale in (2, 3):
+            for scale in (2, 3, 4):
                 img = sprite(rows, scale)
                 png = os.path.join(tmp, f"{name}-{scale}.png")
                 img.save(png)
@@ -1971,6 +1971,32 @@ def aero_gen_preview():
 
 
 # ===========================================================================
+#  Doppelt große Fensterrahmen (für win7-scale 150 % und mehr)
+# ===========================================================================
+def gen_xfwm_2x(src, dst, resample):
+    """Kopiert ein xfwm4-Theme in doppelter Größe: alle PNGs 2x, Abstände im themerc verdoppelt.
+    Retro nutzt NEAREST (Pixelgrafik bleibt scharf), Aero LANCZOS."""
+    ensure(dst)
+    for f in sorted(os.listdir(src)):
+        if f.endswith(".png"):
+            im = Image.open(os.path.join(src, f))
+            im.resize((im.width * 2, im.height * 2), resample).save(os.path.join(dst, f))
+    keys = ("title_horizontal_offset", "title_vertical_offset_active", "title_vertical_offset_inactive",
+            "button_offset", "button_spacing", "maximized_offset", "shadow_delta_x_active", "shadow_delta_y_active",
+            "shadow_delta_width_active", "shadow_delta_height_active", "shadow_delta_x_inactive", "shadow_delta_y_inactive",
+            "shadow_delta_width_inactive", "shadow_delta_height_inactive")
+    out = []
+    for line in open(os.path.join(src, "themerc")):
+        k, _, v = line.strip().partition("=")
+        if k in keys and v.lstrip("-").isdigit():
+            line = f"{k}={int(v) * 2}\n"
+        out.append(line)
+    out.insert(0, "# Automatisch erzeugt: doppelt große Fassung (tools/generate-assets.py)\n")
+    open(os.path.join(dst, "themerc"), "w").writelines(out)
+    print(f"  xfwm4 2x ok ({os.path.basename(dst)})")
+
+
+# ===========================================================================
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--style", choices=["retro", "aero", "all"], default="all")
@@ -1985,6 +2011,7 @@ def main():
             retro_gen_wallpapers(os.path.join(r, "wallpapers"))
         if want("xfwm"):
             retro_gen_xfwm(os.path.join(r, "xfwm4", "Windows-Retro"))
+            gen_xfwm_2x(os.path.join(r, "xfwm4", "Windows-Retro"), os.path.join(r, "xfwm4", "Windows-Retro-2x"), Image.NEAREST)
         if want("icons"):
             retro_gen_icons(os.path.join(r, "icons", "Windows-Retro"))
         if want("gtk"):
@@ -2002,6 +2029,7 @@ def main():
             aero_gen_wallpapers(os.path.join(a, "wallpapers"))
         if want("xfwm"):
             aero_gen_xfwm(os.path.join(a, "xfwm4", "Windows7-Aero"))
+            gen_xfwm_2x(os.path.join(a, "xfwm4", "Windows7-Aero"), os.path.join(a, "xfwm4", "Windows7-Aero-2x"), Image.LANCZOS)
         if want("icons"):
             aero_gen_icons(os.path.join(a, "icons", "Windows7-Aero"))
         if want("sounds"):

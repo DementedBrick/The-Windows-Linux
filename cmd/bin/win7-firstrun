@@ -138,5 +138,7 @@ Exec=true
 Hidden=true
 X-GNOME-Autostart-enabled=false
 EOF
+# Gespeicherte Größe (win7-scale) anwenden – zuletzt, damit sie Vorrang vor den Grundwerten hat
+[ -r "$MARK_DIR/scale" ] && "$DATADIR/bin/win7-scale" --apply >/dev/null 2>&1 || true
 log "Ersteinrichtung abgeschlossen."
 exit 0

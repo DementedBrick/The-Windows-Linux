@@ -119,6 +119,17 @@ Im Startmenü (Whisker-Menü) liegen „Windows-Explorer“, „Eingabeaufforder
 „Systemsteuerung“, „Editor“, „Task-Manager“ und „Ausführen…“ als Favoriten.
 Rechtsklick in Thunar bietet „Eingabeaufforderung hier öffnen“.
 
+**Alles größer** (Taskleiste, Icons, Startmenü, Schrift, Fensterrahmen, Mauszeiger, Eingabeaufforderung):
+
+```bash
+win7-scale 150        # 100, 125, 150, 175 oder 200 – wirkt sofort und bleibt gespeichert
+win7-scale reset      # zurück auf 100 %
+./install.sh --scale 150   # gleich bei der Installation (mit --system: Vorgabe für neue Benutzer)
+```
+
+Ab 150 % werden doppelt große Fensterrahmen genutzt; die Pixel-Icons wachsen in ganzen Vielfachen und bleiben scharf.
+In Thunar vergrößert **Strg + Plus** zusätzlich die Datei-Symbole.
+
 Hintergrund wechseln: `win7-wallpaper list` zeigt alle Bilder (sunset, matrix, sky, hills,
 pattern, planet, teal, …), `win7-wallpaper set sunset` setzt eines, `win7-wallpaper random`
 würfelt, und `win7-wallpaper ~/Bilder/foto.png` nimmt ein eigenes Bild.

@@ -28,6 +28,9 @@ w7_step_theme() {
     local tdir="$W7_THEMEDIR/$W7_GTKTHEME"
     w7_copy_tree "$W7_STYLEDIR/gtk/$W7_GTKTHEME" "$tdir" clean
     w7_copy_tree "$W7_STYLEDIR/xfwm4/$W7_WMTHEME" "$tdir/xfwm4"
+    if [ -d "$W7_STYLEDIR/xfwm4/$W7_WMTHEME-2x" ]; then          # doppelt große Rahmen für win7-scale ≥ 150 %
+        w7_copy_tree "$W7_STYLEDIR/xfwm4/$W7_WMTHEME-2x" "$W7_THEMEDIR/$W7_WMTHEME-2x/xfwm4" clean
+    fi
     w7_track "$tdir"
     w7_ok "GTK/xfwm4-Theme in $tdir"
 
@@ -92,6 +95,9 @@ MONOFONTSIZE=$W7_MONOFONTSIZE
 AA=$W7_AA
 HINTSTYLE=$W7_HINTSTYLE
 RGBA=$W7_RGBA
+PANELSIZE=$W7_PANELSIZE
+PANELICON=$W7_PANELICON
+DESKICON=$W7_DESKICON
 EOF
     w7_install "$tmp" "$W7_DATADIR/style.conf"; rm -f "$tmp"
 }

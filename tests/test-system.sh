@@ -20,7 +20,7 @@ cp -a "$ROOT" "$T/src"; rm -rf "$T/src/.git" "$T/src/iso/build"
 chown -R 1234:1234 "$T/src"; chmod -R g+w "$T/src"
 snap > "$T/before.txt"
 echo "== install --system (Quelle gehört UID 1234, gruppenbeschreibbar) =="
-"$T/src/install.sh" --system --no-packages --yes --style retro --cmd-everywhere > "$T/install.log" 2>&1
+"$T/src/install.sh" --system --no-packages --yes --style retro --cmd-everywhere --scale 150 > "$T/install.log" 2>&1
 check "Installation endet ohne Fehler" 'grep -q "Fertig" "$T/install.log"'
 check "keine unersetzten Platzhalter" '! grep -q "Unersetzter Platzhalter" "$T/install.log"'
 # shellcheck disable=SC2034   # OURS wird in eval-Prüfungen verwendet
@@ -52,7 +52,8 @@ if command -v xfce4-session >/dev/null && command -v Xvfb >/dev/null; then
         bus="$(tr '\0' '\n' < /proc/$pid/environ | sed -n 's/^DBUS_SESSION_BUS_ADDRESS=//p')"
         q() { runuser -u w7user -- env DBUS_SESSION_BUS_ADDRESS="$bus" DISPLAY=:98 xfconf-query "$@" 2>/dev/null; }
         check "Theme im neuen Benutzer ist Windows-Retro" '[ "$(q -c xsettings -p /Net/ThemeName)" = Windows-Retro ]'
-        check "Fensterdekoration ist Windows-Retro" '[ "$(q -c xfwm4 -p /general/theme)" = Windows-Retro ]'
+        check "Fensterdekoration ist Windows-Retro (bzw. die große Variante)" 'case "$(q -c xfwm4 -p /general/theme)" in Windows-Retro|Windows-Retro-2x) true ;; *) false ;; esac'
+        check "Größe 150 % aus /etc/skel wird beim ersten Anmelden angewendet (Taskleiste 42 px, 2x-Rahmen)" '[ "$(q -c xfce4-panel -p /panels/panel-1/size)" = 42 ] && [ "$(q -c xfwm4 -p /general/theme)" = Windows-Retro-2x ] && [ "$(q -c xsettings -p /Xft/DPI)" = 144 ]'
         check "Hintergrundbild ist gesetzt (win7-firstrun lief)" 'q -c xfce4-desktop -l | grep -q last-image && q -c xfce4-desktop -p "$(q -c xfce4-desktop -l | grep last-image | head -1)" | grep -q thewindowslinux'
         runuser -u w7user -- env DISPLAY=:98 HOME=/home/w7user XDG_RUNTIME_DIR=/tmp/xdg-w7user DBUS_SESSION_BUS_ADDRESS="$bus" /usr/local/bin/win7-terminal >/dev/null 2>&1 &
         sleep 5

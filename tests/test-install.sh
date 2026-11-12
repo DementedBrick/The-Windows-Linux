@@ -49,11 +49,12 @@ snap > "$T/after1.txt"
 
 # ---- Installation 2 (aero, über die erste) ----------------------------------------------------------
 echo "== install --style aero (über die erste) =="
-"$ROOT/install.sh" --no-packages --yes --style aero --cmd-everywhere > "$T/install2.log" 2>&1
+"$ROOT/install.sh" --no-packages --yes --style aero --cmd-everywhere --scale 150 > "$T/install2.log" 2>&1
 check "zweite Installation (aero) endet ohne Fehler" 'grep -q "Fertig" "$T/install2.log"'
 check ".profile: Block weiterhin genau einmal" '[ "$(grep -c ">>> TheWindowsLinux >>>" "$HOME/.profile")" = 1 ]'
 check ".bashrc: genau eine markierte Overlay-Zeile" '[ "$(grep -c "TheWindowsLinux cmd-Overlay" "$HOME/.bashrc")" = 1 ]'
 check "Original von xsettings.xml wurde NICHT durch unsere erste Fassung überschrieben" 'grep -q MeinTheme "$HOME/.config/thewindowslinux/original/${HOME#/}/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"'
+check "Größe 150 % gespeichert, doppelt große Fensterrahmen installiert" '[ "$(cat "$HOME/.config/thewindowslinux/scale")" = 150 ] && [ -f "$HOME/.themes/Windows7-Aero-2x/xfwm4/themerc" ] && [ -x "$HOME/.local/bin/win7-scale" ]'
 check "Stil aero aktiv" 'grep -q "Windows7-Aero" "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"'
 
 # ---- Deinstallation ---------------------------------------------------------------------------------------
