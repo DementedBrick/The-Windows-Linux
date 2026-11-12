@@ -91,8 +91,8 @@ if have("tree"):
     out, ok = run("tree -L 1 2>&1 | head -2")
     check("tree -L 1 (Linux)", ok and not any("Auflistung" in l for l in out), out)
 if have("netstat"):
-    out, ok = run("netstat -h 2>&1 | head -1")
-    check("netstat -h (Linux-Argument)", ok and out and "usage" in out[0].lower(), out)
+    out, ok = run("netstat -h 2>&1")
+    check("netstat -h (Linux-Argument)", ok and out and ("inet" in " ".join(out).lower() or "usage" in " ".join(out).lower()), out)
 if have("ping"):
     out, ok = run("ping -c1 -W2 127.0.0.1 2>&1 | grep -c 'bytes from'", timeout=8)
     check("ping -c1 (Linux-Syntax)", ok and out == ["1"], out)

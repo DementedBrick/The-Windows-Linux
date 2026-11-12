@@ -89,7 +89,7 @@ w7_step_xfce() {
         # (GTK-Lesezeichen brauchen absolute Pfade: win7-firstrun legt sie beim ersten Login des Benutzers an)
     else
         [ -s "$W7_XDG_CONF/gtk-3.0/bookmarks" ] || w7_render "$W7_SRC/theme/xfce4/Thunar/bookmarks" "$W7_XDG_CONF/gtk-3.0/bookmarks"
-        w7_have xdg-user-dirs-update && xdg-user-dirs-update 2>/dev/null || true
+        # Leave standard XDG user-directory setup to the desktop session; it is outside this reversible overlay.
         mkdir -p "$HOME/Desktop" 2>/dev/null || true
     fi
 

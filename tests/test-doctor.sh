@@ -23,7 +23,17 @@ mk_kernel() {  # mk_kernel ORDNER   → "guter" Zustand
     local v; for v in meltdown mds l1tf; do echo "Not affected" > "$d/sys/devices/system/cpu/vulnerabilities/$v"; done
     echo "Mitigation: Retpolines; IBPB: conditional; STIBP: disabled" > "$d/sys/devices/system/cpu/vulnerabilities/spectre_v2"
 }
-sect6() { W7_DOCTOR_PROC="$1/proc" W7_DOCTOR_SYS="$1/sys" W7_DOCTOR_UNAME="${2:-6.8.0-45-generic}" "$DOC" --fast --no-color 2>&1 | sed -n '/== 6\./,/== 7\./p'; }
+SHIM="$T/shim"; mkdir -p "$SHIM"
+cat > "$SHIM/dpkg-query" <<'EOF'
+#!/bin/sh
+printf 'linux-image-6.8.0-45-generic\n'
+EOF
+cat > "$SHIM/apt-get" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$SHIM"/*
+sect6() { PATH="$SHIM:$PATH" W7_DOCTOR_PROC="$1/proc" W7_DOCTOR_SYS="$1/sys" W7_DOCTOR_UNAME="${2:-6.8.0-45-generic}" "$DOC" --fast --no-color 2>&1 | sed -n '/== 6\./,/== 7\./p'; }
 
 echo "== guter Kernel-Zustand =="
 mk_kernel "$T/gut"
@@ -47,9 +57,16 @@ check "kptr_restrict=0 und fehlender Symlink-Schutz werden gemeldet" 'printf "%s
 check "Kernel-Oops (tainted=128) wird gemeldet" 'printf "%s\n" "$OUT" | grep -q "^\[WARN\] Der Kernel meldet einen Fehlerzustand"'
 
 echo "== Kernel-Version: laufend vs. installiert =="
-SHIM="$T/shim"; mkdir -p "$SHIM"
-printf '#!/bin/sh\nprintf "linux-image-6.8.0-44-generic\\nlinux-image-6.8.0-45-generic\\n"\n' > "$SHIM/dpkg-query"
-printf '#!/bin/sh\nexit 0\n' > "$SHIM/apt-get"; chmod +x "$SHIM"/*
+cat > "$SHIM/dpkg-query" <<'EOF'
+#!/bin/sh
+printf 'linux-image-6.8.0-44-generic\nlinux-image-6.8.0-45-generic\n'
+EOF
+cat > "$SHIM/apt-get" <<'EOF'
+#!/bin/sh
+[ "${1:-}" = "-s" ] && printf 'Inst linux-image-6.8.0-46-generic [6.8.0-45] (6.8.0-46 Ubuntu:24.04/noble-security)\n'
+exit 0
+EOF
+chmod +x "$SHIM"/*
 OUT="$(PATH="$SHIM:$PATH" sect6 "$T/gut" 6.8.0-44-generic)"
 check "älterer laufender Kernel → Neustart-Warnung" 'printf "%s\n" "$OUT" | grep -q "^\[WARN\] Es ist ein neuerer Kernel installiert (6.8.0-45-generic)"'
 OUT="$(PATH="$SHIM:$PATH" sect6 "$T/gut" 6.8.0-45-generic)"
@@ -61,7 +78,7 @@ check "ausstehendes Kernel-Update wird gemeldet" 'printf "%s\n" "$OUT" | grep -q
 echo "== bekannte Schwachstellen (CVE) über Distributionswerkzeuge =="
 cve() { W7_DOCTOR_OSREL="$1" "$DOC" --fast --no-color 2>&1 | sed -n '/== 9\./,/== Ergebnis/p'; }
 printf 'ID=debian\nVERSION_CODENAME=bookworm\nPRETTY_NAME="Debian"\n' > "$T/os-debian"
-printf '#!/bin/sh\nprintf "libssl3\\nlinux-image-6.1.0-18-amd64\\n"\n' > "$SHIM/debsecan"; chmod +x "$SHIM/debsecan"
+printf '#!/bin/sh\nprintf "libssl3\nlinux-image-6.1.0-18-amd64\n"\n' > "$SHIM/debsecan"; chmod +x "$SHIM/debsecan"
 OUT="$(PATH="$SHIM:$PATH" cve "$T/os-debian")"
 check "Debian: debsecan-Treffer werden als Warnung mit Anzahl gemeldet" 'printf "%s\n" "$OUT" | grep -q "^\[WARN\] 2 Pakete haben bekannte Schwachstellen"'
 printf '#!/bin/sh\nexit 0\n' > "$SHIM/debsecan"

@@ -7,3 +7,6 @@ __pycache__/
 *.log
 *.swp
 iso/kali-build/
+*.iso
+*.qcow2
+*.vdi

@@ -18,9 +18,18 @@ printf '# ~/.profile\nexport EDITOR=nano\n' > "$HOME/.profile"
 mkdir -p "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml" "$HOME/.config/xfce4/panel" "$HOME/Desktop" "$HOME/.local/bin"
 echo '<channel name="xsettings" version="1.0"/>' > "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
 echo 'favorites=meine-app.desktop' > "$HOME/.config/xfce4/panel/whiskermenu-1.rc"
+# Set up standard desktop directories first; the old installer invokes this helper itself.
+command -v xdg-user-dirs-update >/dev/null 2>&1 && xdg-user-dirs-update 2>/dev/null || true
 snap > "$T/before.txt"
+cp -a "$HOME" "$T/home-baseline"
+reset_home() {
+    rm -rf "$HOME"
+    mkdir -p "$HOME"
+    cp -a "$T/home-baseline/." "$HOME/"
+}
 run_scenario() {  # run_scenario NAME UPGRADE(0|1)
     local name="$1" upgrade="$2"
+    reset_home
     echo "== $name: alte Version ($REV) installieren =="
     ( cd "$T/old" && ./install.sh --no-packages --no-fonts --yes --cmd-everywhere > "$T/old-install.log" 2>&1 ) || true
     check "alte Installation hat Dateien angelegt" '[ -d "$HOME/.themes" ] && grep -q TheWindowsLinux "$HOME/.profile"'

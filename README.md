@@ -1,5 +1,9 @@
 # TheWindowsLinux
 
+[![Checks](https://github.com/DementedBrick/TheWindowsLinux/actions/workflows/checks.yml/badge.svg)](https://github.com/DementedBrick/TheWindowsLinux/actions/workflows/checks.yml)
+
+> **Entwicklungsstand:** Das Projekt entwickelt sich vom XFCE-Overlay zu einem eigenständigen Linux-System. Installer und experimentelle ISO-Builds sind vorhanden; vor einem stabilen Image stehen noch vollständige Installations- und Hardwaretests an. Details stehen unter [Live-ISO](#live-iso) und in der [Checkliste für ein erstes öffentliches Image](docs/PUBLIC_RELEASE.md).
+
 **Ein normales Linux mit komplettem Windows-Overlay – wahlweise im Pixel-Retro-Look
 (Windows-95-Ära, wie in alten Desktop-Spielen) oder im Windows-7-Aero-Look – plus
 einer „Eingabeaufforderung“, die sich wie `cmd.exe` verhält.**
@@ -219,10 +223,13 @@ automatische Sicherheitsupdates, Kernel-/Netzwerk-Einstellungen (`/etc/sysctl.d/
 Wer Pentest-Labs mit eingehenden Verbindungen betreibt, gibt Ports gezielt frei (`sudo ufw allow 4444/tcp`).
 
 Der vollständige Prüfbericht zu diesem Projekt (gefundene und behobene Lücken) steht in [docs/AUDIT.md](docs/AUDIT.md).
+Sicherheitslücken bitte vertraulich melden; Hinweise dazu stehen in [SECURITY.md](.github/SECURITY.md).
 
 ---
 
 ## Tests
+
+Die Standardprüfungen laufen bei jedem Push und Pull Request automatisch über GitHub Actions. Der Systemmodus-Test wird dort nicht ausgeführt, weil er Systemdateien verändert; dafür weiterhin eine Wegwerf-VM oder einen Container verwenden.
 
 ```bash
 bash tests/run-all.sh             # Lint + Overlay-Tests + Installations-Roundtrip + Altversions-Deinstallation

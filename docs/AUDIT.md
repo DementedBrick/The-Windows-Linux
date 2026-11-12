@@ -101,7 +101,7 @@ installiert sein Mitschnitt-Programm absichtlich **ohne** Sonderrechte (nur root
 | Test | Prüft | Ergebnis |
 |---|---|---|
 | `shellcheck` (Warnungen + Fehler) | alle Shell-Skripte | sauber |
-| `tests/test-cmd.py` | 40 Fälle im echten Pseudo-Terminal mit Ubuntu-`.bashrc`: Windows- und Linux-Verhalten | 40 / 40 |
+| `tests/test-cmd.py` | 40 Fälle im echten Pseudo-Terminal mit Ubuntu-`.bashrc`: Windows- und Linux-Verhalten | 44 / 44 |
 | `tests/test-install.sh` | Installation Retro → Aero → Deinstallation auf Testkonto mit eigenen Dateien, Byte-Vergleich | 22 / 22 |
 | `tests/test-legacy-uninstall.sh` | 1.1-Installation deinstallieren, und 1.1 → neu darüberinstallieren → deinstallieren | 8 / 8 |
 | `tests/test-system.sh` | Systemmodus: Eigentümer/Rechte, keine SUID/Capabilities/Dienste im Overlay, neuer Benutzer mit echter Sitzung, Deinstallation | 19 / 19 |

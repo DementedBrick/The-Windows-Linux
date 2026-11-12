@@ -36,7 +36,7 @@ Modus
 
 Umfang
   --no-packages       Keine Pakete installieren (XFCE muss schon vorhanden sein)
-  --with-selawik      Aero-Stil: Schrift Selawik von GitHub laden (ungeprüfter Download, Prüfsummen werden angezeigt)
+  --with-selawik      Aero-Stil: Selawik über HTTPS laden, Format prüfen und SHA-256 zur manuellen Kontrolle anzeigen
   --cmd-everywhere    cmd-Overlay in JEDER bash aktivieren (nicht nur in der »Eingabeaufforderung«)
   --with-login        Anmeldebildschirm (LightDM GTK-Greeter) im Windows-7-Look   (nur --system)
   --with-grub         GRUB-Hintergrund setzen                                       (nur --system)

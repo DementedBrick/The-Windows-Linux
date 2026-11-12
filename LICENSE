@@ -25,7 +25,12 @@ SOFTWARE.
 Hinweis / Note:
 Alle Grafiken, Icons, Cursor, Hintergrundbilder und Klänge in diesem
 Repository sind eigene Arbeiten (von tools/generate-assets.py erzeugt) und
-lediglich vom Aussehen klassischer Desktops inspiriert. Es sind keine
-Dateien, Marken oder Schriften von Microsoft enthalten. "Windows" ist eine
-Marke der Microsoft Corporation; dieses Projekt steht in keiner Verbindung
-zu Microsoft.
+lediglich vom Aussehen klassischer Desktops inspiriert. Im Quell-Repository sind keine Microsoft-Binärdateien oder Schriftdateien
+gebündelt. Installationsskripte können separat lizenzierte Schriften beziehen;
+siehe THIRD_PARTY_NOTICES.md. "Windows" ist eine Marke der Microsoft
+Corporation; dieses Projekt steht in keiner Verbindung zu Microsoft.
+
+## Drittanbieter-Schriften
+
+Die MIT-Lizenz oben deckt den Projektcode und die hier erstellten Dateien ab. Sie ersetzt keine Lizenzen von Komponenten, die ein Installationsskript separat über die Distribution oder ein Upstream-Projekt bezieht. Insbesondere Cascadia Code und die optionale Schrift Selawik stehen unter der SIL Open Font License 1.1; sie werden nicht als Schriftdateien in diesem Quell-Repository mitgeliefert. Siehe [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
