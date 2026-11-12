@@ -12,7 +12,7 @@
 #  Das Ergebnis liegt in iso/build/live-image-<arch>.hybrid.iso
 #
 #  Das Live-System meldet sich als "user" (Passwort "live") an – Standard von Debian live-config, bei einer
-#  Installation sofort ändern. Kali-Pakete/-Werkzeuge: siehe iso/build-kali-iso.sh.
+#  Installation sofort ändern.
 #
 #  HINWEIS: Dieser Build wurde in der Entwicklungsumgebung nur auf Syntax geprüft,
 #  nicht vollständig durchlaufen (live-build benötigt root, loop-Devices und viel Zeit).
@@ -78,7 +78,7 @@ EOF
 # Projektdateien ins Chroot kopieren
 mkdir -p config/includes.chroot/opt/thewindowslinux
 # per tar kopieren: Eigentümer des Quellordners wird NICHT übernommen (sonst gehörten Systemdateien dem Klon-Benutzer)
-tar -C "$SRC" --exclude=.git --exclude=iso/build --exclude=iso/kali-build --exclude=__pycache__ -cf - \
+tar -C "$SRC" --exclude=.git --exclude=iso/build --exclude=__pycache__ -cf - \
     install.sh uninstall.sh lib scripts cmd theme tools README.md LICENSE | tar -C config/includes.chroot/opt/thewindowslinux --no-same-owner -xf -
 chmod -R go-w config/includes.chroot/opt/thewindowslinux
 
