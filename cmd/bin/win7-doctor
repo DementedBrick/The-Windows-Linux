@@ -249,7 +249,7 @@ done
 [ -n "$risky" ] && info "Aktive Netzwerkdienste:$risky  (nur wenn gewollt)" || ok "Keine riskanten Netzwerkdienste aktiv."
 for u in avahi-daemon cups-browsed; do systemctl is-active --quiet "$u" 2>/dev/null && info "$u läuft (Auto-Erkennung im Netz; abschaltbar, wenn nicht gebraucht)."; done
 tools=""; for t in nmap hydra john hashcat aircrack-ng sqlmap msfconsole wireshark ettercap bettercap; do have "$t" && tools="$tools $t"; done
-[ -n "$tools" ] && info "Pentest-Werkzeuge installiert:$tools – nur auf eigenen Systemen/mit Erlaubnis einsetzen." || info "Keine Pentest-Werkzeuge installiert (./install.sh --with-kali-tools)."
+[ -n "$tools" ] && info "Pentest-Werkzeuge installiert:$tools – nur auf eigenen Systemen/mit Erlaubnis einsetzen."
 
 # ---------------------------------------------------------------- 9. Bekannte Schwachstellen (CVE)
 sect "9. Bekannte Schwachstellen (CVE)"
@@ -259,8 +259,6 @@ sect "9. Bekannte Schwachstellen (CVE)"
 . "$OSREL" 2>/dev/null
 FAM=" ${ID:-} ${ID_LIKE:-} "
 case "$FAM" in
-    *" kali "*)
-        info "Kali ist eine rollende Distribution: Schwachstellen werden mit regelmäßigem »sudo apt update && sudo apt full-upgrade« behoben (siehe Abschnitt 2)." ;;
     *" ubuntu "*)
         if have ubuntu-security-status || have pro; then
             out="$(timeout 60 ubuntu-security-status 2>/dev/null || timeout 60 pro security-status 2>/dev/null)"
