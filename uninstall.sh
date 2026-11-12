@@ -8,7 +8,7 @@
 #    * von uns neu angelegte, nun leere Ordner verschwinden
 #    * Einträge in ~/.profile / ~/.bashrc werden entfernt (nur unsere markierten Zeilen)
 #    * erkennt auch Installationen älterer Versionen (1.0/1.1)
-#  NICHT rückgängig gemacht werden installierte Pakete (xfce4, Schriften, Kali-Werkzeuge, ufw ...) und
+#  NICHT rückgängig gemacht werden installierte Pakete (xfce4, Schriften, ufw ...) und
 #  die Firewall – sie abzuschalten wäre ein Sicherheitsverlust (sudo ufw disable, falls gewollt).
 #
 #    ./uninstall.sh            (Benutzermodus)
@@ -230,4 +230,4 @@ fi
 echo
 printf '%s✔ TheWindowsLinux wurde entfernt.%s (%d Einträge entfernt, %d Originale wiederhergestellt)\n' "$C_GREEN" "$C_0" "$removed" "$restored"
 echo "Zum Abschluss ab- und wieder anmelden."
-echo "Nicht entfernt: installierte Pakete (xfce4, Schriften, Kali-Werkzeuge, ufw ...) und die Firewall."
+echo "Nicht entfernt: installierte Pakete (xfce4, Schriften, ufw ...) und die Firewall."
