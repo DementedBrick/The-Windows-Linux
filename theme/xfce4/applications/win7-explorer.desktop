@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Windows-Explorer
+Name[de]=Windows-Explorer
+Comment=Dateien und Ordner durchsuchen
+Exec=thunar %u
+Icon=win7-explorer
+Terminal=false
+StartupNotify=true
+MimeType=inode/directory;
+Categories=System;Utility;Core;GTK;FileTools;FileManager;

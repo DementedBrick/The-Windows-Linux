@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ausführen...
+Name[de]=Ausführen...
+Comment=Programm, Ordner oder Dokument öffnen (Win+R)
+Exec=xfce4-appfinder --collapsed
+Icon=system-run
+Terminal=false
+StartupNotify=false
+Categories=Utility;X-XFCE;
+Keywords=run;ausführen;

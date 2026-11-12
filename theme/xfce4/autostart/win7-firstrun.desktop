@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=TheWindowsLinux – Ersteinrichtung
+Comment=Wendet Hintergrund und Panel beim ersten Anmelden an und entfernt sich danach selbst
+Exec=@DATADIR@/bin/win7-firstrun
+Icon=win7-start
+Terminal=false
+Hidden=false
+NoDisplay=true
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+StartupNotify=false

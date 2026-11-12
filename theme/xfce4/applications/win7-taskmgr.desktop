@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Task-Manager
+Name[de]=Task-Manager
+Comment=Laufende Programme und Prozesse anzeigen
+Exec=xfce4-taskmanager
+Icon=utilities-system-monitor
+Terminal=false
+StartupNotify=true
+Categories=System;Monitor;GTK;
+Keywords=taskmgr;prozesse;task;manager;
