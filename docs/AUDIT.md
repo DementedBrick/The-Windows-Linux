@@ -86,15 +86,11 @@ Distribution samt Neustart. Was sich lokal prüfen und abfedern lässt, übernim
 | **Startparameter**, die Schutz abschalten (`mitigations=off`, `nokaslr`, `nopti`, `apparmor=0`, `selinux=0` …) | Solche Optionen bleiben nach Bastelversuchen oft unbemerkt stehen. |
 | Kernel-Einstellungen: ASLR, verborgene Kernel-Adressen, `dmesg`, **BPF nur für root**, `perf`, Null-Zeiger-Schutz, Symlink-/Hardlink-Schutz, SYN-Cookies | Häufige Wege für lokale Rechteausweitung; die meisten lassen sich mit `--harden` setzen. |
 | `tainted`-Zustand, Lockdown, Secure Boot, Festplattenverschlüsselung, AppArmor/SELinux | Zustand und Schutzschichten rund um den Kernel. |
-| **Bekannte Schwachstellen (CVE)** über die Werkzeuge der Distribution: Ubuntu `ubuntu-security-status`, Debian `debsecan`, Arch `arch-audit`, Fedora `dnf updateinfo`; auf Kali `full-upgrade` | Kernel-Versionsnummern allein täuschen: Distributionen übernehmen Korrekturen in alte Versionen (»Backports«). Ein bloßer Versionsvergleich meldet deshalb zu viel oder zu wenig. Nur der Abgleich mit der Datenbank der Distribution ist verlässlich. |
+| **Bekannte Schwachstellen (CVE)** über die Werkzeuge der Distribution: Ubuntu `ubuntu-security-status`, Debian `debsecan`, Arch `arch-audit`, Fedora `dnf updateinfo` | Kernel-Versionsnummern allein täuschen: Distributionen übernehmen Korrekturen in alte Versionen (»Backports«). Ein bloßer Versionsvergleich meldet deshalb zu viel oder zu wenig. Nur der Abgleich mit der Datenbank der Distribution ist verlässlich. |
 
 `--harden` setzt dazu nur Einstellungen, die sich ohne Neustart wieder zurücknehmen lassen. **Bewusst nicht** gesetzt: `kexec_load_disabled` und
 `modules_disabled` (erst nach Neustart rückgängig), User-Namespaces (Browser-Sandbox und Flatpak brauchen sie) und `ptrace_scope`
 (Debugger und Pentest-Werkzeuge brauchen es).
-
-**Berührungspunkte der Kali-Werkzeuge mit dem Kernel:** Sie nutzen rohe Netzwerk-Sockets, Paketmitschnitt und WLAN-Monitor-Modus. Wireshark
-installiert sein Mitschnitt-Programm absichtlich **ohne** Sonderrechte (nur root), der Tor-Dienst wird abgeschaltet. Die Firewall aus
-`--harden` sperrt eingehende Verbindungen; für Labore mit Rückverbindungen gezielt Ports freigeben.
 
 ## Tests
 
@@ -106,18 +102,11 @@ installiert sein Mitschnitt-Programm absichtlich **ohne** Sonderrechte (nur root
 | `tests/test-legacy-uninstall.sh` | 1.1-Installation deinstallieren, und 1.1 → neu darüberinstallieren → deinstallieren | 8 / 8 |
 | `tests/test-system.sh` | Systemmodus: Eigentümer/Rechte, keine SUID/Capabilities/Dienste im Overlay, neuer Benutzer mit echter Sitzung, Deinstallation | 19 / 19 |
 | `tests/test-doctor.sh` | `win7-doctor` gegen nachgebaute Kernel-Zustände (gut/schlecht), Kernel-Versionen, CVE-Werkzeuge je Distribution | 18 / 18 |
-| Kali-Werkzeugliste | 114 Werkzeuge in Ubuntu 24.04 gemeinsam installierbar (Simulation, 720 Pakete, keine Konflikte) | bestanden |
-| Kali-ISO-Vorbereitung | gegen die echte offizielle Kali-Baukonfiguration | bestanden |
 
 ## Was dieser Bericht nicht abdeckt
 
 * **Dein tatsächliches System.** Ich kann nicht darauf zugreifen. `win7-doctor` prüft es – am besten einmal mit `sudo`.
-* **Sicherheitslücken in installierter Software, auch im Kernel selbst** (Browser, XFCE, Kali-Werkzeuge): Das Projekt kann sie nur
   **erkennen und abfedern**, nicht beheben – dafür sind Updates der Distribution nötig (bei Kernel-Updates mit Neustart).
   `win7-doctor` zeigt Kernel-Stand, CPU-Schwachstellen und bekannte Lücken; `--harden` richtet automatische Sicherheitsupdates ein.
 * **Nicht ausgeführt** (nur Syntax bzw. Vorbereitung geprüft): GRUB-/Plymouth-/LightDM-Schritte auf echter Hardware, der
-  komplette ISO-Bau (Debian und Kali; braucht Root, viel Platz und Stunden) und die Wirkung von `--harden` auf einem echten
   Rechner (im Test nur als Trockenlauf und Schlüsselprüfung gegen den Kernel).
-* **Bewusst nicht enthalten:** das Kali-Repository auf Fremddistributionen (zerstört Systeme), Metasploit/Burp Suite
-  (nur im Kali-Repository; Installer des Herstellers nutzen) und Druckdienste.
-* Pentest-Werkzeuge sind zweischneidig: Sie nur auf eigenen Systemen oder mit schriftlicher Erlaubnis einsetzen.
