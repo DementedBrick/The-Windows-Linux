@@ -3,7 +3,10 @@
 #
 #   * Firewall (ufw): eingehend sperren, ausgehend erlauben; laufendes SSH bleibt erreichbar
 #   * automatische Sicherheitsupdates (unattended-upgrades bzw. dnf-automatic)
-#   * Kernel-/Netzwerk-Einstellungen (sysctl-Datei), die auf Desktops praktisch nie stören
+#   * Kernel-/Netzwerk-Einstellungen (sysctl-Datei), die auf Desktops praktisch nie stören (ASLR, Kernel-Adressen,
+#     BPF, perf, Null-Zeiger-Schutz, Symlink-Schutz, ICMP-Umleitungen …). Bewusst NICHT gesetzt: Einstellungen, die sich
+#     erst nach einem Neustart zurücknehmen lassen (kexec_load_disabled, modules_disabled) oder Programme stören
+#     (User-Namespaces für Browser/Flatpak, ptrace_scope für Debugger und Pentest-Werkzeuge).
 #   * SSH-Server (falls vorhanden): Root-Anmeldung per Passwort aus, kurze Anmeldefrist
 #
 # Alles wird über w7_install protokolliert und von uninstall.sh wieder entfernt (die Firewall bleibt
@@ -82,6 +85,12 @@ net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.all.accept_source_route = 0
 -net.ipv6.conf.all.accept_source_route = 0
 net.ipv4.icmp_echo_ignore_broadcasts = 1
+# Kernel-Angriffsfläche verkleinern (alle ohne Neustart wieder zurücknehmbar; "-" = fehlende Schlüssel überspringen)
+kernel.perf_event_paranoid = 2
+vm.mmap_min_addr = 65536
+-kernel.unprivileged_bpf_disabled = 2
+-net.core.bpf_jit_harden = 2
+-dev.tty.ldisc_autoload = 0
 EOF
     if [ "${W7_HARDEN_DRYRUN:-0}" = 1 ]; then
         printf '    [Trockenlauf] /etc/sysctl.d/99-thewindowslinux.conf (%s Einstellungen)\n' "$(grep -c '=' "$tmp")"

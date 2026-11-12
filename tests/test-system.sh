@@ -33,6 +33,7 @@ check "/etc/skel erhält die XFCE-Konfiguration für neue Benutzer" '[ -f /etc/s
 check "systemweit: eigene Kanäle in /etc/xdg, Distributionsdateien (xsettings, session, shortcuts) unberührt" 'grep -q Windows-Retro /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml && ! grep -q Windows-Retro /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml && grep -q Failsafe /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml'
 check "/etc/bash.bashrc: genau eine Overlay-Zeile" '[ "$(grep -c "TheWindowsLinux cmd-Overlay" /etc/bash.bashrc /etc/bashrc 2>/dev/null | awk -F: "{s+=\$2} END {print s}")" = 1 ]'
 check "Installationsliste liegt root-eigen unter /var/lib" '[ "$(stat -c %U /var/lib/thewindowslinux/installed-files.txt)" = root ]'
+check "Overlay-Angriffsfläche: keine SUID/SGID-Dateien, keine Capabilities, keine Systemdienste" '[ -z "$(find $OURS -xdev \( -perm -4000 -o -perm -2000 \) 2>/dev/null | head -1)" ] && { ! command -v getcap >/dev/null || [ -z "$(getcap -r $OURS 2>/dev/null)" ]; } && [ -z "$(find $OURS /etc/systemd /usr/local/lib/systemd -name "*.service" -newer "$T/before.txt" 2>/dev/null | head -1)" ]'
 check "win7-doctor findet am Overlay nichts zu beanstanden" '! /usr/local/bin/win7-doctor --fast --no-color 2>&1 | sed -n "/== 1\./,/== 2\./p" | grep -q "WARN"'
 
 echo "== neuer Benutzer: Desktop-Sitzung =="

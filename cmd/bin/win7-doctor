@@ -21,6 +21,10 @@ for a in "$@"; do
 done
 [ -t 1 ] || COLOR=0
 if [ $COLOR -eq 1 ]; then G=$'\033[32m'; Y=$'\033[33m'; B=$'\033[36m'; H=$'\033[1m'; Z=$'\033[0m'; else G=""; Y=""; B=""; H=""; Z=""; fi
+# Quellen sind überschreibbar (Tests arbeiten mit nachgebauten Kernel-Zuständen)
+PROCFS="${W7_DOCTOR_PROC:-/proc}"; SYSFS="${W7_DOCTOR_SYS:-/sys}"; OSREL="${W7_DOCTOR_OSREL:-/etc/os-release}"
+KVER="${W7_DOCTOR_UNAME:-$(uname -r)}"
+sysval() { cat "$PROCFS/sys/$(printf '%s' "$1" | tr . /)" 2>/dev/null; }      # sysctl-Schlüssel lesen
 IS_ROOT=0; [ "$(id -u)" -eq 0 ] && IS_ROOT=1
 WARN=0; OKC=0; INFOC=0
 ok()   { OKC=$((OKC + 1));     printf '%s[ OK ]%s %s\n' "$G" "$Z" "$*"; }
@@ -33,7 +37,8 @@ have() { command -v "$1" >/dev/null 2>&1; }
 gow() { local p; p="$(stat -L -c %a "$1" 2>/dev/null)" || return 1; [[ "${p: -2:1}" =~ [2367] || "${p: -1}" =~ [2367] ]]; }
 needroot() { [ $IS_ROOT -eq 1 ] || { info "$1 (nur als root prüfbar: sudo win7-doctor)"; return 1; }; }
 
-printf '%sTheWindowsLinux Systemprüfung%s – %s, Kernel %s\n' "$H" "$Z" "$( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-Linux}")" "$(uname -r)"
+# shellcheck disable=SC1090
+printf '%sTheWindowsLinux Systemprüfung%s – %s, Kernel %s\n' "$H" "$Z" "$( . "$OSREL" 2>/dev/null; echo "${PRETTY_NAME:-Linux}")" "$KVER"
 
 # ---------------------------------------------------------------- 1. Overlay
 sect "1. TheWindowsLinux-Installation"
@@ -45,6 +50,8 @@ case "$DATADIR" in
 esac
 wr="$(find "$DATADIR" \( -perm -g+w -o -perm -o+w \) ! -type l 2>/dev/null | head -3)"
 if [ -n "$wr" ]; then warn "Für Gruppe/Andere beschreibbare Overlay-Dateien: $(echo "$wr" | head -1) …"; hint "chmod -R go-w $DATADIR"; else ok "Keine für Gruppe/Andere beschreibbaren Overlay-Dateien."; fi
+su="$(find "$DATADIR" \( -perm -4000 -o -perm -2000 \) 2>/dev/null | head -2)"
+if [ -n "$su" ]; then warn "SUID/SGID-Dateien im Overlay: $su"; else ok "Das Overlay bringt keine SUID/SGID-Dateien, Dienste oder Kernel-Module mit (nur Konfiguration und Skripte)."; fi
 for f in /etc/profile.d/thewindowslinux.sh /etc/sysctl.d/99-thewindowslinux.conf; do
     [ -e "$f" ] || continue
     if [ "$(stat -L -c '%U' "$f")" = root ] && ! gow "$f"; then ok "$f gehört root und ist nicht für andere beschreibbar."; else warn "$f ist nicht root-eigen oder für andere beschreibbar."; fi
@@ -122,24 +129,88 @@ al="$(grep -Rhis '^[[:space:]]*\(autologin-user\|AutomaticLoginEnable\|Autologin
 [ -n "$al" ] && warn "Automatische Anmeldung ist aktiv ($al)." || ok "Keine automatische Anmeldung."
 
 # ---------------------------------------------------------------- 6. Kernel
-sect "6. Kernel- und Netzwerk-Einstellungen"
+sect "6. Linux-Kernel"
+info "Laufender Kernel: $KVER"
+
+# 6a. Läuft der neueste installierte Kernel? Gibt es ein Kernel-Update? (Kernel-Fehler werden nur durch Update + Neustart behoben)
+newest=""; pendk=0
+if have dpkg-query; then
+    newest="$(dpkg-query -W -f '${Package}\n' 'linux-image-[0-9]*' 'linux-image-unsigned-[0-9]*' 2>/dev/null | sed -E 's/^linux-image-(unsigned-)?//' | grep -E '^[0-9]' | sort -V | tail -1)"
+    have apt-get && apt-get -s upgrade 2>/dev/null | grep -qE '^Inst linux-image' && pendk=1
+elif have rpm; then
+    newest="$(rpm -q kernel-core kernel --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' 2>/dev/null | grep -v 'not installed' | sort -V | tail -1)"
+    have dnf && dnf -q check-update 'kernel*' >/dev/null 2>&1; [ $? -eq 100 ] && pendk=1
+elif have pacman; then
+    pk="$(pacman -Q linux 2>/dev/null | awk '{print $2}' | sed 's/\.arch/-arch/')"; [ -n "$pk" ] && newest="$pk"
+    have checkupdates && checkupdates 2>/dev/null | grep -q '^linux ' && pendk=1
+fi
+if [ -n "$newest" ] && [ "$newest" != "$KVER" ] && [ "$(printf '%s\n%s\n' "$KVER" "$newest" | sort -V | tail -1)" = "$newest" ]; then
+    warn "Es ist ein neuerer Kernel installiert ($newest) als der laufende ($KVER)."; hint "Neu starten, damit Kernel-Sicherheitskorrekturen wirken."
+elif [ -n "$newest" ]; then ok "Der laufende Kernel ist der neueste installierte."; fi
+[ $pendk -eq 1 ] && { warn "Ein Kernel-Update steht aus."; hint "sudo apt update && sudo apt upgrade   (danach neu starten)"; }
+
+# 6b. CPU-Schwachstellen (Spectre, Meltdown, MDS, …): Status, den der Kernel selbst meldet
+vd="$SYSFS/devices/system/cpu/vulnerabilities"
+if [ -d "$vd" ]; then
+    nn=0; nm=0; nv=0; vlist=""
+    for f in "$vd"/*; do
+        [ -f "$f" ] || continue
+        st="$(cat "$f" 2>/dev/null)"; nme="$(basename "$f")"
+        case "$st" in
+            "Not affected"*) nn=$((nn + 1)) ;;
+            Vulnerable*) nv=$((nv + 1)); vlist="$vlist $nme" ; warn "CPU-Schwachstelle $nme: ${st%%;*}" ;;
+            Mitigation*|*"mitigated"*|*"Mitigated"*) nm=$((nm + 1)) ;;
+            *) nm=$((nm + 1)) ;;
+        esac
+    done
+    if [ $nv -eq 0 ]; then ok "CPU-Schwachstellen: $nn nicht betroffen, $nm abgemildert, 0 offen."
+    else hint "Kernel und CPU-Microcode aktualisieren (Pakete intel-microcode bzw. amd64-microcode), neu starten; Rechner ggf. mit älterer CPU: Schutz kostet Leistung."; fi
+else info "Der Kernel meldet keinen CPU-Schwachstellen-Status."; fi
+
+# 6c. Schutz abgeschaltet? (Kernel-Startparameter)
+cl="$(cat "$PROCFS/cmdline" 2>/dev/null)"
+bad=""
+for flag in mitigations=off nokaslr nopti pti=off apparmor=0 selinux=0 noexec=off noexec32=off nosmep nosmap spectre_v2=off l1tf=off mds=off; do
+    case " $cl " in *" $flag "*) bad="$bad $flag" ;; esac
+done
+if [ -n "$bad" ]; then warn "Kernel-Startparameter schalten Schutzfunktionen ab:$bad"; hint "In /etc/default/grub (GRUB_CMDLINE_LINUX…) entfernen, dann sudo update-grub."; else ok "Keine Schutzfunktion per Kernel-Startparameter abgeschaltet."; fi
+
+# 6d. Kernel-Einstellungen (sysctl)
 chk() {  # chk SCHLÜSSEL MINDESTWERT BESCHREIBUNG [info]
-    local v; v="$(sysctl -n "$1" 2>/dev/null)" || { info "$1 nicht vorhanden"; return; }
+    local v; v="$(sysval "$1")"; [ -n "$v" ] || { info "$3: $1 gibt es auf diesem Kernel nicht."; return; }
     if [ "$v" -ge "$2" ] 2>/dev/null; then ok "$3 ($1 = $v)"; else
         if [ "${4:-}" = info ]; then info "$3 ($1 = $v)"; else warn "$3 ($1 = $v, erwartet ≥ $2)"; fi; hint "Setzen: sudo ./install.sh --system --harden"; fi
 }
 chk kernel.randomize_va_space 2 "Adressraum-Zufall (ASLR)"
 chk kernel.kptr_restrict 1 "Kernel-Adressen verborgen"
 chk kernel.dmesg_restrict 1 "dmesg nur für root"
+chk kernel.unprivileged_bpf_disabled 1 "BPF nur für root (häufiger Weg für Kernel-Exploits)"
+chk kernel.perf_event_paranoid 2 "perf-Ereignisse eingeschränkt"
+chk vm.mmap_min_addr 65536 "Null-Zeiger-Schutz (kleinste mmap-Adresse)"
 chk fs.protected_symlinks 1 "Schutz vor Symlink-Angriffen"
 chk fs.protected_hardlinks 1 "Schutz vor Hardlink-Angriffen"
 chk net.ipv4.tcp_syncookies 1 "SYN-Cookies"
+chk net.core.bpf_jit_harden 1 "BPF-JIT-Härtung" info
 chk kernel.yama.ptrace_scope 1 "ptrace nur für Kindprozesse" info
-v="$(sysctl -n net.ipv4.conf.all.accept_redirects 2>/dev/null)"; [ "$v" = 0 ] && ok "ICMP-Redirects werden ignoriert." || info "ICMP-Redirects werden akzeptiert (net.ipv4.conf.all.accept_redirects = ${v:-?})."
+v="$(sysval dev.tty.ldisc_autoload)"; [ "$v" = 0 ] && ok "TTY-Zeilendisziplinen werden nicht automatisch nachgeladen." || { [ -n "$v" ] && info "TTY-Zeilendisziplinen werden automatisch nachgeladen (dev.tty.ldisc_autoload = $v)."; }
+v="$(sysval net.ipv4.conf.all.accept_redirects)"; [ "$v" = 0 ] && ok "ICMP-Redirects werden ignoriert." || info "ICMP-Redirects werden akzeptiert (net.ipv4.conf.all.accept_redirects = ${v:-?})."
+v="$(sysval user.max_user_namespaces)"; uc="$(sysval kernel.unprivileged_userns_clone)"
+if [ -n "$v" ] && [ "$v" != 0 ] && [ "${uc:-1}" != 0 ]; then info "Unprivilegierte User-Namespaces sind erlaubt (Browser-Sandbox/Flatpak brauchen sie; zugleich eine häufige Quelle von Kernel-Exploits)."; fi
+
+# 6e. Zustand des Kernels
+t="$(sysval kernel.tainted)"
+if [ -n "$t" ] && [ "$t" != 0 ]; then
+    msg=""; [ $((t & 1)) -ne 0 ] && msg="$msg proprietäres Modul;"; [ $((t & 4096)) -ne 0 ] && msg="$msg Modul außerhalb des Kernel-Quellbaums;"; [ $((t & 8192)) -ne 0 ] && msg="$msg unsigniertes Modul;"
+    if [ $((t & 128)) -ne 0 ] || [ $((t & 32)) -ne 0 ] || [ $((t & 16)) -ne 0 ]; then warn "Der Kernel meldet einen Fehlerzustand (kernel.tainted = $t: Oops/Bad Page/Machine Check) – Hardware oder Treiber prüfen (dmesg)."
+    else info "Kernel ist als »tainted« markiert ($t:${msg:- sonstige Gründe}) – normal bei Zusatztreibern (NVIDIA, VirtualBox, WLAN-Treiber)."; fi
+else ok "Kernel ist unverändert (nicht »tainted«)."; fi
+if [ -r "$SYSFS/kernel/security/lockdown" ]; then info "Kernel-Lockdown: $(cat "$SYSFS/kernel/security/lockdown")"; fi
+
+# 6f. Rest der Plattform
 if have mokutil && mokutil --sb-state 2>/dev/null | grep -qi enabled; then ok "Secure Boot ist aktiv."
-elif [ -d /sys/firmware/efi ]; then info "UEFI-System, Secure Boot nicht aktiv oder nicht prüfbar."; else info "Kein UEFI (Secure Boot nicht zutreffend)."; fi
+elif [ -d "$SYSFS/firmware/efi" ]; then info "UEFI-System, Secure Boot nicht aktiv oder nicht prüfbar."; else info "Kein UEFI (Secure Boot nicht zutreffend)."; fi
 if lsblk -no TYPE 2>/dev/null | grep -qx crypt; then ok "Datenträgerverschlüsselung (LUKS) wird verwendet."; else info "Keine Datenträgerverschlüsselung erkannt (bei Laptops empfehlenswert)."; fi
-if [ -d /sys/module/apparmor ] && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = Y ]; then ok "AppArmor ist aktiv."
+if [ -d "$SYSFS/module/apparmor" ] && [ "$(cat "$SYSFS/module/apparmor/parameters/enabled" 2>/dev/null)" = Y ]; then ok "AppArmor ist aktiv."
 elif have getenforce && [ "$(getenforce 2>/dev/null)" = Enforcing ]; then ok "SELinux ist aktiv."
 else info "Weder AppArmor noch SELinux aktiv."; fi
 [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && ok "Uhr ist per NTP synchronisiert." || info "Uhr nicht per NTP synchronisiert."
@@ -179,6 +250,43 @@ done
 for u in avahi-daemon cups-browsed; do systemctl is-active --quiet "$u" 2>/dev/null && info "$u läuft (Auto-Erkennung im Netz; abschaltbar, wenn nicht gebraucht)."; done
 tools=""; for t in nmap hydra john hashcat aircrack-ng sqlmap msfconsole wireshark ettercap bettercap; do have "$t" && tools="$tools $t"; done
 [ -n "$tools" ] && info "Pentest-Werkzeuge installiert:$tools – nur auf eigenen Systemen/mit Erlaubnis einsetzen." || info "Keine Pentest-Werkzeuge installiert (./install.sh --with-kali-tools)."
+
+# ---------------------------------------------------------------- 9. Bekannte Schwachstellen (CVE)
+sect "9. Bekannte Schwachstellen (CVE)"
+# Kernel-Versionsnummern allein sagen wenig: Distributionen übernehmen Korrekturen in alte Versionen (»Backports«).
+# Verlässlich ist nur der Abgleich mit der Schwachstellen-Datenbank der Distribution – darum werden deren Werkzeuge genutzt.
+# shellcheck disable=SC1090
+. "$OSREL" 2>/dev/null
+FAM=" ${ID:-} ${ID_LIKE:-} "
+case "$FAM" in
+    *" kali "*)
+        info "Kali ist eine rollende Distribution: Schwachstellen werden mit regelmäßigem »sudo apt update && sudo apt full-upgrade« behoben (siehe Abschnitt 2)." ;;
+    *" ubuntu "*)
+        if have ubuntu-security-status || have pro; then
+            out="$(timeout 60 ubuntu-security-status 2>/dev/null || timeout 60 pro security-status 2>/dev/null)"
+            if [ -n "$out" ]; then info "ubuntu-security-status:"; printf '%s\n' "$out" | head -8 | sed 's/^/         /'; else info "ubuntu-security-status lieferte nichts (kein Netz?)."; fi
+        else info "Kein Schwachstellen-Werkzeug gefunden."; hint "sudo apt install ubuntu-pro-client   – dann erneut win7-doctor ausführen"; fi ;;
+    *" debian "*)
+        if have debsecan; then
+            cn="${VERSION_CODENAME:-$(lsb_release -sc 2>/dev/null)}"
+            out="$(timeout 90 debsecan --suite "$cn" --only-fixed --format packages 2>/dev/null | sort -u)"
+            n="$(printf '%s' "$out" | grep -c .)"
+            if [ "$n" -gt 0 ]; then warn "$n Pakete haben bekannte Schwachstellen mit verfügbarer Korrektur (debsecan)."; printf '%s\n' "$out" | head -8 | sed 's/^/         /'; hint "sudo apt update && sudo apt upgrade"
+            else ok "debsecan: keine bekannten, bereits korrigierten Schwachstellen offen."; fi
+        else info "Kein Schwachstellen-Werkzeug gefunden."; hint "sudo apt install debsecan   – dann erneut win7-doctor ausführen"; fi ;;
+    *" arch "*)
+        if have arch-audit; then
+            out="$(timeout 60 arch-audit -u 2>/dev/null)"
+            if [ -n "$out" ]; then warn "arch-audit: Pakete mit bekannten Schwachstellen und verfügbarem Update:"; printf '%s\n' "$out" | head -8 | sed 's/^/         /'; hint "sudo pacman -Syu"
+            else ok "arch-audit: keine behebbaren Schwachstellen offen."; fi
+        else info "Kein Schwachstellen-Werkzeug gefunden."; hint "sudo pacman -S arch-audit   – dann erneut win7-doctor ausführen"; fi ;;
+    *" fedora "*|*" rhel "*|*" centos "*)
+        if have dnf; then
+            n="$(timeout 90 dnf -q updateinfo list --security 2>/dev/null | grep -c .)"
+            if [ "${n:-0}" -gt 0 ]; then warn "$n Sicherheits-Hinweise der Distribution sind offen."; hint "sudo dnf upgrade --security"; else ok "Keine offenen Sicherheits-Hinweise (dnf)."; fi
+        else info "dnf nicht gefunden."; fi ;;
+    *) info "Für diese Distribution ist kein Schwachstellen-Abgleich hinterlegt – regelmäßig aktualisieren." ;;
+esac
 
 # ---------------------------------------------------------------- Ergebnis
 printf '\n%s== Ergebnis ==%s\n' "$H" "$Z"

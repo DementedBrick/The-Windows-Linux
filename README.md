@@ -207,9 +207,12 @@ sudo ./install.sh --system --with-kali-tools=top10        # nur die wichtigsten 
 ```
 
 Geprüft werden: Overlay-Dateirechte, ausstehende Sicherheitsupdates, Firewall, von außen erreichbare Ports, SSH-Konfiguration,
-Konten (leere Passwörter, UID 0, sudo ohne Passwort), Kernel-Einstellungen (ASLR, kptr_restrict, Symlink-Schutz …),
-Secure Boot, Festplattenverschlüsselung, AppArmor/SELinux, automatische Anmeldung, riskante Dienste, schreibbare PATH-Ordner,
-SUID-Dateien an ungewöhnlichen Orten. Rückgabewert = Anzahl der Warnungen (`--fast` überspringt die langsamen Suchen).
+Konten (leere Passwörter, UID 0, sudo ohne Passwort), automatische Anmeldung, riskante Dienste, schreibbare PATH-Ordner,
+SUID-Dateien an ungewöhnlichen Orten – und der **Linux-Kernel**: läuft der neueste installierte Kernel, steht ein Kernel-Update aus,
+CPU-Schwachstellen (Spectre, Meltdown, MDS …), abgeschaltete Schutzfunktionen in den Startparametern, Kernel-Einstellungen
+(ASLR, BPF, perf, Null-Zeiger-Schutz, Symlink-Schutz …), Secure Boot, Festplattenverschlüsselung, AppArmor/SELinux sowie bekannte
+Schwachstellen (CVE) über die Werkzeuge der Distribution (`ubuntu-security-status`, `debsecan`, `arch-audit`, `dnf updateinfo`).
+Eine Lücke im Kernel selbst behebt nur ein Kernel-Update der Distribution mit Neustart. Rückgabewert = Anzahl der Warnungen (`--fast` überspringt die langsamen Suchen).
 
 **`--harden`** (mit `--system`) behebt die häufigsten Befunde: Firewall (`ufw`, eingehend gesperrt – laufendes SSH bleibt erreichbar),
 automatische Sicherheitsupdates, Kernel-/Netzwerk-Einstellungen (`/etc/sysctl.d/99-thewindowslinux.conf`) und SSH-Härtung.
@@ -229,6 +232,8 @@ sudo bash tests/test-system.sh    # Systemmodus (verändert das System – nur i
 * `tests/test-cmd.py` startet die Eingabeaufforderung in einem echten Pseudo-Terminal (mit der Ubuntu-Standard-`.bashrc`)
   und prüft, dass Windows-Befehle funktionieren **und** normale Linux-Befehle (`mkdir -p`, `find -exec … \;`, `cd -`, `echo -e`,
   `ping`, `time` …) unverändert bleiben.
+* `tests/test-doctor.sh` baut Kernel-Zustände nach (gut und schlecht) und prüft, dass `win7-doctor` offene CPU-Schwachstellen,
+  abgeschaltete Schutzfunktionen, einen älteren laufenden Kernel und bekannte Schwachstellen erkennt.
 * `tests/test-install.sh` installiert zweimal (Retro, dann Aero) auf einem Testkonto mit eigenen Konfigurationsdateien,
   deinstalliert und vergleicht den Zustand Datei für Datei.
 * `tests/test-system.sh` installiert systemweit aus einem Quellordner mit fremdem Eigentümer, startet eine echte

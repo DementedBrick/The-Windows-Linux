@@ -71,6 +71,31 @@ und eine Umschreibung der Eingabezeile. Die Tests zeigten:
 | **Upgrade von Version 1.1 auf 1.2** (der Weg der meisten Anwender): Die neue Version hätte die Overlay-Dateien der alten Installation als »Originale des Benutzers« gesichert und die echten Originale nie zurückgespielt. | Beim ersten Start werden die alten Sicherungen übernommen, unprotokollierte Dateien der alten Version als »unsere« markiert und Dateien in protokollierten Ordnern nie als fremd gesichert. Getestet: alt installieren → neu darüber installieren → deinstallieren → Zustand wie vorher. |
 | Zwei Fehler in genau diesem neuen Code (Lesen einer noch nicht vorhandenen Datei unter `set -e`) hätten **jede Erstinstallation** abgebrochen. | Vom Gesamttest sofort entdeckt und behoben – ein Beispiel dafür, warum die Tests bei jeder Änderung laufen. |
 
+### Linux-Kernel
+
+Alles hier läuft auf dem Linux-Kernel deiner Distribution; er ist die wichtigste Schicht. Das Projekt liefert **keinen** Kernel, keine
+Kernel-Module, keine SUID-Programme, keine Systemdienste und öffnet keine Ports – nur Konfiguration, Grafiken und Skripte. Das wird
+automatisch geprüft (`tests/test-system.sh`: keine SUID/SGID-Dateien, keine Capabilities, keine Dienste im Overlay). Eine Lücke
+**im Kernel selbst** kann das Projekt deshalb weder einbauen noch beheben – sie verschwindet nur mit einem Kernel-Update der
+Distribution samt Neustart. Was sich lokal prüfen und abfedern lässt, übernimmt `win7-doctor` (Abschnitt 6 und 9):
+
+| Prüfung | Warum |
+|---|---|
+| Läuft der **neueste installierte** Kernel? Steht ein Kernel-Update aus? | Kernel-Korrekturen wirken erst nach dem Neustart; ein installierter, aber nicht gebooteter Kernel schützt nicht. |
+| **CPU-Schwachstellen** (Spectre, Meltdown, MDS, Retbleed …): Status, den der Kernel selbst meldet | »Vulnerable« bedeutet: Der Schutz fehlt (Kernel/Microcode veraltet). |
+| **Startparameter**, die Schutz abschalten (`mitigations=off`, `nokaslr`, `nopti`, `apparmor=0`, `selinux=0` …) | Solche Optionen bleiben nach Bastelversuchen oft unbemerkt stehen. |
+| Kernel-Einstellungen: ASLR, verborgene Kernel-Adressen, `dmesg`, **BPF nur für root**, `perf`, Null-Zeiger-Schutz, Symlink-/Hardlink-Schutz, SYN-Cookies | Häufige Wege für lokale Rechteausweitung; die meisten lassen sich mit `--harden` setzen. |
+| `tainted`-Zustand, Lockdown, Secure Boot, Festplattenverschlüsselung, AppArmor/SELinux | Zustand und Schutzschichten rund um den Kernel. |
+| **Bekannte Schwachstellen (CVE)** über die Werkzeuge der Distribution: Ubuntu `ubuntu-security-status`, Debian `debsecan`, Arch `arch-audit`, Fedora `dnf updateinfo`; auf Kali `full-upgrade` | Kernel-Versionsnummern allein täuschen: Distributionen übernehmen Korrekturen in alte Versionen (»Backports«). Ein bloßer Versionsvergleich meldet deshalb zu viel oder zu wenig. Nur der Abgleich mit der Datenbank der Distribution ist verlässlich. |
+
+`--harden` setzt dazu nur Einstellungen, die sich ohne Neustart wieder zurücknehmen lassen. **Bewusst nicht** gesetzt: `kexec_load_disabled` und
+`modules_disabled` (erst nach Neustart rückgängig), User-Namespaces (Browser-Sandbox und Flatpak brauchen sie) und `ptrace_scope`
+(Debugger und Pentest-Werkzeuge brauchen es).
+
+**Berührungspunkte der Kali-Werkzeuge mit dem Kernel:** Sie nutzen rohe Netzwerk-Sockets, Paketmitschnitt und WLAN-Monitor-Modus. Wireshark
+installiert sein Mitschnitt-Programm absichtlich **ohne** Sonderrechte (nur root), der Tor-Dienst wird abgeschaltet. Die Firewall aus
+`--harden` sperrt eingehende Verbindungen; für Labore mit Rückverbindungen gezielt Ports freigeben.
+
 ## Tests
 
 | Test | Prüft | Ergebnis |
@@ -79,15 +104,17 @@ und eine Umschreibung der Eingabezeile. Die Tests zeigten:
 | `tests/test-cmd.py` | 40 Fälle im echten Pseudo-Terminal mit Ubuntu-`.bashrc`: Windows- und Linux-Verhalten | 40 / 40 |
 | `tests/test-install.sh` | Installation Retro → Aero → Deinstallation auf Testkonto mit eigenen Dateien, Byte-Vergleich | 22 / 22 |
 | `tests/test-legacy-uninstall.sh` | 1.1-Installation deinstallieren, und 1.1 → neu darüberinstallieren → deinstallieren | 8 / 8 |
-| `tests/test-system.sh` | Systemmodus: Eigentümer/Rechte, neuer Benutzer mit echter Sitzung, Deinstallation | 18 / 18 |
+| `tests/test-system.sh` | Systemmodus: Eigentümer/Rechte, keine SUID/Capabilities/Dienste im Overlay, neuer Benutzer mit echter Sitzung, Deinstallation | 19 / 19 |
+| `tests/test-doctor.sh` | `win7-doctor` gegen nachgebaute Kernel-Zustände (gut/schlecht), Kernel-Versionen, CVE-Werkzeuge je Distribution | 18 / 18 |
 | Kali-Werkzeugliste | 114 Werkzeuge in Ubuntu 24.04 gemeinsam installierbar (Simulation, 720 Pakete, keine Konflikte) | bestanden |
 | Kali-ISO-Vorbereitung | gegen die echte offizielle Kali-Baukonfiguration | bestanden |
 
 ## Was dieser Bericht nicht abdeckt
 
 * **Dein tatsächliches System.** Ich kann nicht darauf zugreifen. `win7-doctor` prüft es – am besten einmal mit `sudo`.
-* **Sicherheitslücken in installierter Software** (Kernel, Browser, XFCE, Kali-Werkzeuge): Sie kommen aus deiner Distribution.
-  Wichtig sind regelmäßige Updates; `--harden` richtet automatische Sicherheitsupdates ein.
+* **Sicherheitslücken in installierter Software, auch im Kernel selbst** (Browser, XFCE, Kali-Werkzeuge): Das Projekt kann sie nur
+  **erkennen und abfedern**, nicht beheben – dafür sind Updates der Distribution nötig (bei Kernel-Updates mit Neustart).
+  `win7-doctor` zeigt Kernel-Stand, CPU-Schwachstellen und bekannte Lücken; `--harden` richtet automatische Sicherheitsupdates ein.
 * **Nicht ausgeführt** (nur Syntax bzw. Vorbereitung geprüft): GRUB-/Plymouth-/LightDM-Schritte auf echter Hardware, der
   komplette ISO-Bau (Debian und Kali; braucht Root, viel Platz und Stunden) und die Wirkung von `--harden` auf einem echten
   Rechner (im Test nur als Trockenlauf und Schlüsselprüfung gegen den Kernel).
