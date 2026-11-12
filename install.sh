@@ -15,7 +15,7 @@ W7_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export W7_SRC
 # shellcheck source=lib/common.sh
 . "$W7_SRC/lib/common.sh"
-for s in packages theme xfce cmd login harden kali; do
+for s in packages theme xfce cmd login harden; do
     # shellcheck source=/dev/null
     . "$W7_SRC/scripts/$s.sh"
 done
@@ -44,10 +44,6 @@ Umfang
   --full              = --system --with-login --with-grub --with-plymouth --cmd-everywhere
 
 Werkzeuge und Absicherung (optional)
-  --with-kali-tools[=STUFE]  Kali-Werkzeuge installieren. Auf Kali: Metapakete (core, top10, default, large, everything,
-                      headless oder eine Kategorie wie web/wireless/passwords). Sonst: die Kali-typischen Werkzeuge
-                      aus den normalen Paketquellen (Stufe top10 = die wichtigsten, sonst alle verfügbaren).
-  --kali-level STUFE  wie oben, getrennt angegeben
   --scale PROZENT     alles größer: 100 (Standard) 125 150 175 200 – Taskleiste, Icons, Schrift, Fenster, Mauszeiger.
                       Später jederzeit änderbar: win7-scale 150
   --harden            System absichern: Firewall (ufw), automatische Sicherheitsupdates, Kernel-Einstellungen,
@@ -66,8 +62,6 @@ W7_MODE=user
 W7_STYLE=retro
 W7_NO_PACKAGES=0
 W7_WITH_SELAWIK=0
-W7_WITH_KALI=0
-W7_KALI_LEVEL=default
 W7_HARDEN=0
 W7_SCALE=
 W7_CMD_EVERYWHERE=0
@@ -87,10 +81,6 @@ while [ $# -gt 0 ]; do
         --no-packages) W7_NO_PACKAGES=1 ;;
         --no-fonts) ;;   # (veraltet: Selawik wird nur noch mit --with-selawik geladen)
         --with-selawik) W7_WITH_SELAWIK=1 ;;
-        --with-kali-tools) W7_WITH_KALI=1 ;;
-        --with-kali-tools=*) W7_WITH_KALI=1; W7_KALI_LEVEL="${1#*=}" ;;
-        --kali-level) W7_WITH_KALI=1; W7_KALI_LEVEL="${2:-default}"; shift ;;
-        --kali-level=*) W7_WITH_KALI=1; W7_KALI_LEVEL="${1#*=}" ;;
         --harden) W7_HARDEN=1 ;;
         --scale) W7_SCALE="${2:-}"; shift ;;
         --scale=*) W7_SCALE="${1#*=}" ;;
@@ -107,7 +97,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 case "${W7_SCALE:-}" in ""|100|125|150|175|200) ;; *) w7_die "--scale erlaubt 100, 125, 150, 175 oder 200 (nicht »$W7_SCALE«)." ;; esac
-export W7_SCALE W7_MODE W7_STYLE W7_NO_PACKAGES W7_WITH_SELAWIK W7_WITH_KALI W7_KALI_LEVEL W7_HARDEN W7_CMD_EVERYWHERE W7_WITH_LOGIN W7_WITH_GRUB W7_WITH_PLYMOUTH W7_QUIET
+export W7_SCALE W7_MODE W7_STYLE W7_NO_PACKAGES W7_WITH_SELAWIK W7_HARDEN W7_CMD_EVERYWHERE W7_WITH_LOGIN W7_WITH_GRUB W7_WITH_PLYMOUTH W7_QUIET
 
 # ---------------------------------------------------------------------------
 w7_detect_distro
@@ -139,7 +129,6 @@ w7_info "XFCE-Konfig  : $W7_XDG_CONF/xfce4"
 [ "$W7_NO_PACKAGES" = 1 ] || w7_info "Pakete       : werden installiert ($W7_PKG)"
 [ "$W7_CMD_EVERYWHERE" = 1 ] && w7_info "cmd-Overlay  : in jeder bash"
 [ "$W7_WITH_LOGIN" = 1 ] && w7_info "Login        : LightDM-Greeter wird angepasst"
-[ "$W7_WITH_KALI" = 1 ] && w7_info "Kali-Tools   : Stufe $W7_KALI_LEVEL"
 [ "$W7_HARDEN" = 1 ] && w7_info "Absicherung  : Firewall, Auto-Updates, Kernel-Einstellungen, SSH"
 echo
 if [ "$W7_YES" != 1 ] && [ -t 0 ]; then
@@ -157,7 +146,6 @@ w7_step_login
 w7_step_grub
 w7_step_plymouth
 w7_step_harden
-w7_step_kali
 
 # Größe: im Benutzermodus für diesen Benutzer, im Systemmodus als Vorgabe für neue Benutzer (/etc/skel)
 if [ -n "$W7_SCALE" ]; then
@@ -178,7 +166,6 @@ tmpinfo="$(mktemp)"
     echo "style=$W7_STYLE"
     echo "mode=$W7_MODE"
     echo "date=$W7_RUN_ID"
-    echo "kali=$W7_WITH_KALI"
     echo "harden=$W7_HARDEN"
     echo "datadir=$W7_DATADIR"
     echo "themedir=$W7_THEMEDIR/$W7_GTKTHEME"
