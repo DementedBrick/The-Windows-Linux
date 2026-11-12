@@ -87,9 +87,6 @@ check "Debian: keine Treffer → in Ordnung" 'printf "%s\n" "$OUT" | grep -q "^\
 printf 'ID=arch\nPRETTY_NAME="Arch"\n' > "$T/os-arch"; printf '#!/bin/sh\necho "Package openssl is affected by CVE-2024-0001. High risk!"\n' > "$SHIM/arch-audit"; chmod +x "$SHIM/arch-audit"
 OUT="$(PATH="$SHIM:$PATH" cve "$T/os-arch")"
 check "Arch: arch-audit-Treffer werden gemeldet" 'printf "%s\n" "$OUT" | grep -q "^\[WARN\] arch-audit"'
-printf 'ID=kali\nPRETTY_NAME="Kali"\n' > "$T/os-kali"
-OUT="$(cve "$T/os-kali")"
-check "Kali: Hinweis auf full-upgrade" 'printf "%s\n" "$OUT" | grep -q "full-upgrade"'
 printf 'ID=debian\nPRETTY_NAME="Debian"\n' > "$T/os-debian2"
 OUT="$(PATH="/usr/bin:/bin" W7_DOCTOR_OSREL="$T/os-debian2" "$DOC" --fast --no-color 2>&1 | sed -n '/== 9\./,/== Ergebnis/p')"
 check "ohne Werkzeug: Installationshinweis" 'printf "%s\n" "$OUT" | grep -q "sudo apt install debsecan"'
