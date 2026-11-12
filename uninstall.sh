@@ -78,7 +78,7 @@ for f in "$W7_SRC"/theme/xfce4/autostart/*.desktop; do rm_path "$W7_AUTOSTART/$(
 [ "$W7_MODE" = system ] && rm_path /etc/skel/.config/gtk-3.0/bookmarks
 
 # Befehle
-for b in cmd cmd.exe eingabeaufforderung win7-terminal win7-sound win7-firstrun; do rm_path "$W7_BINDIR/$b"; done
+for b in cmd cmd.exe eingabeaufforderung win7-terminal win7-sound win7-firstrun win7-wallpaper; do rm_path "$W7_BINDIR/$b"; done
 
 # Login/Boot (nur System)
 if [ "$W7_MODE" = system ]; then

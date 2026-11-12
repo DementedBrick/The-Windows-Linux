@@ -105,6 +105,10 @@ Im Startmenü (Whisker-Menü) liegen „Windows-Explorer“, „Eingabeaufforder
 „Systemsteuerung“, „Editor“, „Task-Manager“ und „Ausführen…“ als Favoriten.
 Rechtsklick in Thunar bietet „Eingabeaufforderung hier öffnen“.
 
+Hintergrund wechseln: `win7-wallpaper list` zeigt alle Bilder (sunset, matrix, sky, hills,
+pattern, planet, teal, …), `win7-wallpaper set sunset` setzt eines, `win7-wallpaper random`
+würfelt, und `win7-wallpaper ~/Bilder/foto.png` nimmt ein eigenes Bild.
+
 Sounds abschalten: `win7-sound --off` (wieder an: `win7-sound --on`) oder den
 Autostart-Eintrag „Anmeldesound“ in den Sitzungseinstellungen deaktivieren.
 

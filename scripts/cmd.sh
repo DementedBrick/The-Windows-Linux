@@ -9,7 +9,7 @@ w7_step_cmd() {
     w7_step "Terminal-Overlay (cmd) einrichten"
     w7_mkdir "$W7_BINDIR"
     local b
-    for b in cmd win7-terminal win7-sound win7-firstrun; do
+    for b in cmd win7-terminal win7-sound win7-firstrun win7-wallpaper; do
         w7_do ln -sf "$W7_DATADIR/bin/$b" "$W7_BINDIR/$b"
         w7_track "$W7_BINDIR/$b"
     done

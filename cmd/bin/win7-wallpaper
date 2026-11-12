@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – Hintergrund wechseln
+#   win7-wallpaper list            alle mitgelieferten Hintergründe anzeigen
+#   win7-wallpaper set NAME        z. B. win7-wallpaper set sunset
+#   win7-wallpaper random          zufälligen Hintergrund wählen
+#   win7-wallpaper DATEI.png       eigenes Bild verwenden
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+DIR="$DATADIR/wallpapers"
+
+list() { for f in "$DIR"/*.png; do n="$(basename "$f" .png)"; case "$n" in *-login|*-480x270) continue ;; esac; echo "${n#retro-}"; done; }
+
+apply() {
+    local img="$1"
+    [ -f "$img" ] || { echo "Datei nicht gefunden: $img" >&2; exit 1; }
+    command -v xfconf-query >/dev/null 2>&1 || { echo "xfconf-query fehlt (läuft XFCE?)" >&2; exit 1; }
+    local props mons m ws p
+    props="$(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E '/backdrop/screen[0-9]+/monitor.*/workspace[0-9]+/last-image$' || true)"
+    mons="$(xrandr --listactivemonitors 2>/dev/null | awk 'NR>1 {print $NF}')"
+    for m in $mons 0; do for ws in 0 1 2 3; do props="$props /backdrop/screen0/monitor$m/workspace$ws/last-image"; done; done
+    for p in $(printf '%s\n' $props | sort -u); do
+        xfconf-query -c xfce4-desktop -p "$p" -n -t string -s "$img" 2>/dev/null
+        xfconf-query -c xfce4-desktop -p "${p%/last-image}/image-style" -n -t int -s 5 2>/dev/null
+    done
+    xfdesktop --reload >/dev/null 2>&1 || true
+    echo "Hintergrund: $(basename "$img")"
+}
+
+case "${1:-list}" in
+    list|-l|--list) list ;;
+    set) [ -n "${2:-}" ] || { echo "Name fehlt. Siehe: win7-wallpaper list" >&2; exit 1; }
+         f="$DIR/retro-$2.png"; [ -f "$f" ] || f="$DIR/$2.png"; apply "$f" ;;
+    random) pick="$(list | shuf -n1)"; f="$DIR/retro-$pick.png"; [ -f "$f" ] || f="$DIR/$pick.png"; apply "$f" ;;
+    -h|--help) sed -n '2,7p' "$0" ;;
+    *) if [ -f "$1" ]; then apply "$(readlink -f "$1")"; else f="$DIR/retro-$1.png"; [ -f "$f" ] || f="$DIR/$1.png"; apply "$f"; fi ;;
+esac

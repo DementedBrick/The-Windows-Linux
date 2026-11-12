@@ -250,6 +250,176 @@ def retro_wallpaper(w=480, h=270, logo=True):
     return img
 
 
+def dgrad(w, h, stops):
+    """Senkrechter Verlauf zwischen VGA-Farben mit Bayer-Dithering."""
+    img = Image.new("RGBA", (w, h))
+    px = img.load()
+    for y in range(h):
+        t = y / (h - 1)
+        for i in range(len(stops) - 1):
+            p0, c0 = stops[i]
+            p1, c1 = stops[i + 1]
+            if p0 <= t <= p1:
+                f = (t - p0) / max(1e-6, p1 - p0)
+                break
+        else:
+            c0 = c1 = stops[-1][1]
+            f = 0
+        for x in range(w):
+            px[x, y] = (*(c1 if f > (BAYER4[y % 4][x % 4] + 0.5) / 16.0 else c0), 255)
+    return img
+
+
+def _stars(img, rnd, count, ymax, colors=(WHITE, SILVER)):
+    px = img.load()
+    w, h = img.size
+    for _ in range(count):
+        x, y = rnd.randrange(w), rnd.randrange(ymax)
+        px[x, y] = (*rnd.choice(colors), 255)
+
+
+def wp_sunset(w=480, h=270):
+    import random
+    rnd = random.Random(1984)
+    hor = int(h * 0.6)
+    img = dgrad(w, h, [(0, BLACK), (0.2, VGA["n"]), (0.38, VGA["p"]), (0.5, VGA["m"]), (0.6, VGA["r"])])
+    d = ImageDraw.Draw(img)
+    _stars(img, rnd, 70, int(h * 0.3))
+    # Sonne mit Streifen
+    cx, cy, r = w // 2, hor - 6, 62
+    for y in range(cy - r, cy + r + 1):
+        for x in range(cx - r, cx + r + 1):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and y < hor:
+                t = (y - (cy - r)) / (2 * r)
+                c = VGA["y"] if t < 0.45 else VGA["r"] if t > 0.8 else VGA["o"]
+                img.putpixel((x, y), (*c, 255))
+    for i, gap in enumerate((3, 4, 5, 6, 7)):
+        yy = cy + 8 + i * 9
+        d.rectangle([cx - r, yy, cx + r, yy + gap - 1], fill=(*VGA["m"], 255))
+    # Boden + Raster
+    d.rectangle([0, hor, w, h], fill=(*BLACK, 255))
+    d.line([0, hor, w, hor], fill=(*VGA["f"], 255))
+    for i in range(1, 12):
+        y = hor + int((i / 12) ** 2 * (h - hor))
+        d.line([0, y, w, y], fill=(*VGA["f"], 255))
+    for i in range(-14, 15):
+        d.line([w // 2 + i * 6, hor, w // 2 + i * 70, h], fill=(*VGA["f"], 255))
+    return img
+
+
+def wp_matrix(w=480, h=270):
+    import random
+    rnd = random.Random(1999)
+    img = Image.new("RGBA", (w, h), (*BLACK, 255))
+    px = img.load()
+    for x in range(0, w, 6):
+        y = rnd.randrange(-h, h)
+        ln = rnd.randrange(8, 60)
+        for i in range(ln):
+            yy = y + i
+            if 0 <= yy < h and rnd.random() < 0.78:
+                c = WHITE if i == ln - 1 else VGA["l"] if i > ln - 6 else VGA["g"]
+                for dx in range(4):
+                    for dy in range(5):
+                        if rnd.random() < 0.55 and x + dx < w and yy * 1 + 0 < h:
+                            py = yy
+                            if 0 <= py < h:
+                                px[x + dx, py] = (*c, 255)
+    return img
+
+
+def wp_sky(w=480, h=270):
+    import random
+    rnd = random.Random(95)
+    img = dgrad(w, h, [(0, VGA["b"]), (0.6, VGA["c"]), (1, WHITE)])
+    d = ImageDraw.Draw(img)
+    for _ in range(9):
+        cx, cy, r = rnd.randrange(20, w - 20), rnd.randrange(20, int(h * 0.8)), rnd.randrange(14, 30)
+        for (ox, oy, rr) in ((0, 0, r), (-r, r // 4, int(r * .75)), (r, r // 4, int(r * .8)), (-r // 2, -r // 3, int(r * .7)), (r // 2, -r // 3, int(r * .7))):
+            d.ellipse([cx + ox - rr, cy + oy - rr // 2, cx + ox + rr, cy + oy + rr // 2], fill=(*SILVER, 255))
+        for (ox, oy, rr) in ((0, -2, r - 3), (-r, r // 4 - 2, int(r * .75) - 3), (r, r // 4 - 2, int(r * .8) - 3), (-r // 2, -r // 3 - 2, int(r * .7) - 3), (r // 2, -r // 3 - 2, int(r * .7) - 3)):
+            d.ellipse([cx + ox - rr, cy + oy - rr // 2, cx + ox + rr, cy + oy + rr // 2 - 2], fill=(*WHITE, 255))
+    return img
+
+
+def wp_hills(w=480, h=270):
+    import random
+    rnd = random.Random(7)
+    img = dgrad(w, h, [(0, BLACK), (0.4, VGA["n"]), (0.75, TEAL), (1, VGA["c"])])
+    d = ImageDraw.Draw(img)
+    _stars(img, rnd, 80, int(h * 0.45))
+    d.ellipse([w - 110, 30, w - 70, 70], fill=(*VGA["y"], 255))
+    d.ellipse([w - 100, 28, w - 66, 62], fill=(*VGA["n"], 255))
+    layers = [(0.55, 14, 0.9, GRAY), (0.66, 18, 1.3, VGA["o"]), (0.78, 22, 1.7, VGA["g"])]
+    for base, amp, freq, col in layers:
+        ph = rnd.random() * 6
+        for x in range(w):
+            top = int(h * base + amp * math.sin(x / 60 * freq + ph) + amp * 0.5 * math.sin(x / 23 + ph))
+            d.line([x, top, x, h], fill=(*col, 255))
+    # Vordergrund dunkel
+    for x in range(w):
+        top = int(h * 0.9 + 6 * math.sin(x / 35))
+        d.line([x, top, x, h], fill=(*BLACK, 255))
+    return img
+
+
+def wp_pattern(w=480, h=270):
+    img = Image.new("RGBA", (w, h), (*TEAL, 255))
+    px = img.load()
+    dark = (0, 96, 96)
+    for y in range(h):
+        for x in range(w):
+            if (x + y) % 8 in (0, 1) or (x - y) % 16 == 0:
+                px[x, y] = (*dark, 255)
+            if x % 8 == 4 and y % 8 == 4:
+                px[x, y] = (*VGA["c"], 255)
+    return img
+
+
+def wp_planet(w=480, h=270):
+    import random
+    rnd = random.Random(2001)
+    img = Image.new("RGBA", (w, h), (*BLACK, 255))
+    _stars(img, rnd, 220, h, colors=(WHITE, SILVER, GRAY, VGA["c"], VGA["y"]))
+    d = ImageDraw.Draw(img)
+    cx, cy, r = int(w * 0.62), int(h * 0.55), 70
+    # Planet mit gedithertem Verlauf (Licht von links oben)
+    px = img.load()
+    for y in range(cy - r, cy + r + 1):
+        for x in range(cx - r, cx + r + 1):
+            dx, dy = x - cx, y - cy
+            if dx * dx + dy * dy <= r * r:
+                lit = 1 - ((dx + dy * 0.6) / (r * 1.6) + 0.5)
+                thr = (BAYER4[y % 4][x % 4] + 0.5) / 16.0
+                if lit > 0.7:
+                    c = VGA["c"] if lit - 0.7 > thr * 0.3 else VGA["t"]
+                elif lit > 0.4:
+                    c = VGA["t"] if lit - 0.4 > thr * 0.3 else VGA["n"]
+                else:
+                    c = VGA["n"] if lit > thr * 0.4 else BLACK
+                px[x, y] = (*c, 255)
+    # Ring
+    for a in range(0, 360, 1):
+        ang = math.radians(a)
+        for rr in range(r + 10, r + 24):
+            x = int(cx + rr * math.cos(ang))
+            y = int(cy + rr * math.sin(ang) * 0.25)
+            front = math.sin(ang) > 0
+            if 0 <= x < w and 0 <= y < h and (front or abs(x - cx) > r * 0.98 or y < cy - r * 0.2):
+                px[x, y] = (*(SILVER if rr % 6 < 4 else GRAY), 255)
+    return img
+
+
+RETRO_WALLPAPERS = {
+    "retro-sunset": wp_sunset,
+    "retro-matrix": wp_matrix,
+    "retro-sky": wp_sky,
+    "retro-hills": wp_hills,
+    "retro-pattern": wp_pattern,
+    "retro-planet": wp_planet,
+}
+
+
 def retro_gen_wallpapers(out):
     ensure(out)
     base = retro_wallpaper()
@@ -263,6 +433,8 @@ def retro_gen_wallpapers(out):
     # Klassisch: einfarbig Teal + Dither-Variante
     solid = Image.new("RGB", (1920, 1080), TEAL)
     solid.save(os.path.join(out, "retro-teal.png"), optimize=True)
+    for name, fn in RETRO_WALLPAPERS.items():
+        upscale(fn(), 4).convert("RGB").save(os.path.join(out, name + ".png"), optimize=True)
     print("  retro wallpapers ok")
 
 
