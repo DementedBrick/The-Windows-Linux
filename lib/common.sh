@@ -166,6 +166,13 @@ w7_backup_once() {
     local f="$1" orig
     { [ -e "$f" ] || [ -L "$f" ]; } || return 0
     grep -qxF -- "$f" "$W7_VARDIR/installed-files.txt" 2>/dev/null && return 0
+    # liegt die Datei in einem von uns protokollierten Ordner (z. B. dem Datenordner), gehört sie ebenfalls uns
+    local t list="$W7_VARDIR/installed-files.txt"
+    if [ -f "$list" ]; then
+        while IFS= read -r t; do
+            [ -d "$t" ] && case "$f" in "$t"/*) return 0 ;; esac
+        done < "$list"
+    fi
     orig="$W7_VARDIR/original/${f#/}"
     { [ -e "$orig" ] || [ -L "$orig" ]; } && return 0
     w7_do mkdir -p "$(dirname "$orig")"
@@ -191,6 +198,44 @@ w7_install() {  # w7_install [-m MODE] quelle ziel
     w7_mkdir "$(dirname "$2")"
     w7_do install -m "$mode" "$1" "$2"
     w7_track "$2"
+}
+
+# Upgrade von einer Version vor 1.2: Die alte Version legte Sicherungen als backup-<datum>/ ab und protokollierte
+# nicht alles. Ohne Migration würde diese Version die Overlay-Dateien der alten Installation für »Originale des
+# Benutzers« halten und die echten Originale nie wiederherstellen.
+w7_migrate_legacy() {
+    local ver old f d name
+    [ -d "$W7_VARDIR/original" ] && return 0
+    ver="$(sed -n 's/^version=//p' "$W7_VARDIR/install.info" 2>/dev/null || true)"
+    old="$(ls -d "$W7_VARDIR"/backup-* 2>/dev/null | sort | head -1 || true)"
+    if [ -n "$ver" ]; then
+        [ "$(printf '%s\n1.2.0\n' "$ver" | sort -V | head -1)" = 1.2.0 ] && return 0     # bereits ab 1.2.0
+    else
+        [ -n "$old" ] || return 0                                                         # keine alte Installation
+    fi
+    w7_info "Ältere Installation (Version ${ver:-?}) erkannt – übernehme ihre Sicherungen."
+    if [ -n "$old" ]; then
+        w7_do mv -- "$old" "$W7_VARDIR/original"          # die älteste Sicherung enthält die echten Originale
+        for d in "$W7_VARDIR"/backup-*; do [ -d "$d" ] && w7_rm_rf "$d"; done
+    fi
+    # Dateien, die die alte Version geschrieben, aber nicht protokolliert hat, als »unsere« markieren
+    for name in "$W7_SRC"/theme/xfce4/xfconf/*.xml xfce4-session.xml xfce4-terminal.xml; do
+        f="$W7_XDG_CONF/xfce4/xfconf/xfce-perchannel-xml/$(basename "$name")"
+        [ -e "$f" ] && w7_track "$f"
+    done
+    for f in "$W7_XDG_CONF/xfce4/panel/whiskermenu-1.rc" "$W7_XDG_CONF/xfce4/terminal/terminalrc" "$W7_XDG_CONF/Thunar/uca.xml" \
+             "$W7_XDG_CONF"/xfce4/panel/launcher-[234]/*.desktop; do
+        [ -e "$f" ] && w7_track "$f"
+    done
+    for f in "$W7_ICONDIR"/hicolor/*/apps/win7-{start,cmd,explorer,control-panel}.png; do [ -e "$f" ] && w7_track "$f"; done
+    for f in "$W7_SRC"/theme/xfce4/applications/*.desktop; do [ -e "$W7_APPDIR/$(basename "$f")" ] && w7_track "$W7_APPDIR/$(basename "$f")"; done
+    for f in "$W7_SRC"/theme/xfce4/autostart/*.desktop; do [ -e "$W7_AUTOSTART/$(basename "$f")" ] && w7_track "$W7_AUTOSTART/$(basename "$f")"; done
+    # Die alte Sitzungsdatei gibt es nicht mehr (sie überschrieb im Systemmodus die Failsafe-Sitzung der Distribution)
+    f="$W7_XDG_CONF/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml"
+    if [ -e "$f" ] && grep -q 'TheWindowsLinux' "$f" 2>/dev/null; then
+        if [ -e "$W7_VARDIR/original/${f#/}" ]; then w7_do cp -a -- "$W7_VARDIR/original/${f#/}" "$f"; else w7_rm_rf "$f"; fi
+    fi
+    w7_do touch "$W7_VARDIR/legacy-migrated"             # uninstall.sh räumt dann auch Altlasten (leere Ordner, Leerzeilen) auf
 }
 
 # Verzeichnis rekursiv kopieren; Symlinks bleiben erhalten (wichtig für Cursor-Aliase).

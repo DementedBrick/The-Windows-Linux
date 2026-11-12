@@ -19,15 +19,26 @@ mkdir -p "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml" "$HOME/.config/xfce4/p
 echo '<channel name="xsettings" version="1.0"/>' > "$HOME/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
 echo 'favorites=meine-app.desktop' > "$HOME/.config/xfce4/panel/whiskermenu-1.rc"
 snap > "$T/before.txt"
-echo "== alte Version ($REV) installieren =="
-( cd "$T/old" && ./install.sh --no-packages --no-fonts --yes --cmd-everywhere > "$T/old-install.log" 2>&1 ) || true
-check "alte Installation hat Dateien angelegt" '[ -d "$HOME/.themes" ] && grep -q TheWindowsLinux "$HOME/.profile"'
-echo "== neu deinstallieren =="
-"$ROOT/uninstall.sh" --yes > "$T/uninstall.log" 2>&1
-check "Deinstallation endet ohne Fehler" 'grep -q "wurde entfernt" "$T/uninstall.log"'
-snap > "$T/after.txt"
-if diff -u "$T/before.txt" "$T/after.txt" > "$T/diff.txt"; then check "Zustand == Ausgangszustand" 'true'
-else check "Zustand == Ausgangszustand" 'false'; head -25 "$T/diff.txt"; fi
+run_scenario() {  # run_scenario NAME UPGRADE(0|1)
+    local name="$1" upgrade="$2"
+    echo "== $name: alte Version ($REV) installieren =="
+    ( cd "$T/old" && ./install.sh --no-packages --no-fonts --yes --cmd-everywhere > "$T/old-install.log" 2>&1 ) || true
+    check "alte Installation hat Dateien angelegt" '[ -d "$HOME/.themes" ] && grep -q TheWindowsLinux "$HOME/.profile"'
+    if [ "$upgrade" = 1 ]; then
+        echo "== $name: NEU darüber installieren (Upgrade) =="
+        "$ROOT/install.sh" --no-packages --yes --style retro > "$T/upgrade.log" 2>&1
+        check "Upgrade-Installation endet ohne Fehler" 'grep -q "Fertig" "$T/upgrade.log"'
+        check "Upgrade: Originale liegen im neuen Sicherungsordner, nicht die alten Overlay-Dateien (die .bashrc der alten Version war schon verändert und wird ohnehin nicht daraus wiederhergestellt)" 'grep -q "favorites=meine-app" "$HOME/.config/thewindowslinux/original/${HOME#/}/.config/xfce4/panel/whiskermenu-1.rc" && ! grep -rqs --exclude=.bashrc "TheWindowsLinux" "$HOME/.config/thewindowslinux/original/"'
+    fi
+    echo "== $name: neu deinstallieren =="
+    "$ROOT/uninstall.sh" --yes > "$T/uninstall.log" 2>&1
+    check "Deinstallation endet ohne Fehler" 'grep -q "wurde entfernt" "$T/uninstall.log"'
+    snap > "$T/after.txt"
+    if diff -u "$T/before.txt" "$T/after.txt" > "$T/diff.txt"; then check "Zustand == Ausgangszustand" 'true'
+    else check "Zustand == Ausgangszustand" 'false'; head -25 "$T/diff.txt"; fi
+}
+run_scenario "A) alt installiert, neu deinstalliert" 0
+run_scenario "B) alt installiert, neu darüber installiert, neu deinstalliert" 1
 echo; echo "$pass bestanden, $fail fehlgeschlagen"
 rm -rf "$T"
 [ $fail -eq 0 ]

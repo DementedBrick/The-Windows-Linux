@@ -119,6 +119,7 @@ if [ "$W7_MODE" = user ] && [ "$(id -u)" -eq 0 ] && [ "${W7_ALLOW_ROOT_USER:-0}"
     w7_die "Du bist root. Starte ohne sudo (./install.sh) für deinen Benutzer, oder nutze --system für alle Benutzer."
 fi
 w7_do mkdir -p "$W7_VARDIR"
+w7_migrate_legacy
 
 printf '\n%s╔══════════════════════════════════════════════════════════════╗%s\n' "$C_BLUE" "$C_0"
 printf '%s║%s   TheWindowsLinux %-6s – Windows-Overlay für Linux (XFCE)     %s║%s\n' "$C_BLUE" "$C_0" "$W7_VERSION" "$C_BLUE" "$C_0"

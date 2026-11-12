@@ -47,6 +47,7 @@ if [ ! -d "$ORIG" ]; then
     if [ -n "$old" ]; then ORIG="$old"; LEGACY=1; fi
 fi
 
+[ -f "$W7_VARDIR/legacy-migrated" ] && LEGACY=1      # von einer älteren Version aktualisiert: Altlasten zusätzlich aufräumen
 if [ ! -e "$LIST" ] && [ ! -e "$W7_DATADIR/VERSION" ]; then
     w7_warn "Keine Installation von TheWindowsLinux gefunden ($W7_MODE-Modus). Nichts zu tun."
     exit 0

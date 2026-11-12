@@ -68,6 +68,8 @@ und eine Umschreibung der Eingabezeile. Die Tests zeigten:
 | Die Deinstallation hinterließ Ordner, `.profile`-Leerzeilen und Cache-Dateien. | Der Zustand nach Deinstallation ist **byte-identisch** mit dem vorherigen (Dateien, Ordner, Rechte, Inhalte). |
 | Installationen älterer Versionen (1.0/1.1) ließen sich nicht sauber entfernen. | Werden erkannt und aufgeräumt (getestet mit einer echten 1.1-Installation). |
 | Bei Neuinstallation blieben veraltete Dateien im Theme-Ordner. | Theme- und Icon-Ordner werden vor dem Kopieren ersetzt. |
+| **Upgrade von Version 1.1 auf 1.2** (der Weg der meisten Anwender): Die neue Version hätte die Overlay-Dateien der alten Installation als »Originale des Benutzers« gesichert und die echten Originale nie zurückgespielt. | Beim ersten Start werden die alten Sicherungen übernommen, unprotokollierte Dateien der alten Version als »unsere« markiert und Dateien in protokollierten Ordnern nie als fremd gesichert. Getestet: alt installieren → neu darüber installieren → deinstallieren → Zustand wie vorher. |
+| Zwei Fehler in genau diesem neuen Code (Lesen einer noch nicht vorhandenen Datei unter `set -e`) hätten **jede Erstinstallation** abgebrochen. | Vom Gesamttest sofort entdeckt und behoben – ein Beispiel dafür, warum die Tests bei jeder Änderung laufen. |
 
 ## Tests
 
@@ -76,7 +78,7 @@ und eine Umschreibung der Eingabezeile. Die Tests zeigten:
 | `shellcheck` (Warnungen + Fehler) | alle Shell-Skripte | sauber |
 | `tests/test-cmd.py` | 40 Fälle im echten Pseudo-Terminal mit Ubuntu-`.bashrc`: Windows- und Linux-Verhalten | 40 / 40 |
 | `tests/test-install.sh` | Installation Retro → Aero → Deinstallation auf Testkonto mit eigenen Dateien, Byte-Vergleich | 22 / 22 |
-| `tests/test-legacy-uninstall.sh` | Deinstallation einer 1.1-Installation | 3 / 3 |
+| `tests/test-legacy-uninstall.sh` | 1.1-Installation deinstallieren, und 1.1 → neu darüberinstallieren → deinstallieren | 8 / 8 |
 | `tests/test-system.sh` | Systemmodus: Eigentümer/Rechte, neuer Benutzer mit echter Sitzung, Deinstallation | 18 / 18 |
 | Kali-Werkzeugliste | 114 Werkzeuge in Ubuntu 24.04 gemeinsam installierbar (Simulation, 720 Pakete, keine Konflikte) | bestanden |
 | Kali-ISO-Vorbereitung | gegen die echte offizielle Kali-Baukonfiguration | bestanden |
