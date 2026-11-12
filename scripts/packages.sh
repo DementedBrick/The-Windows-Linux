@@ -16,11 +16,24 @@ w7_packages_debian() {
         network-manager-gnome policykit-1-gnome file-roller unzip curl
     )
     w7_root env DEBIAN_FRONTEND=noninteractive apt-get update -qq || w7_warn "apt-get update meldete Fehler – fahre fort."
-    local pkg available=()
+    # Nur Pakete mit echtem Installationskandidaten (apt-cache show allein reicht nicht:
+    # es meldet auch Pakete, die auf diesem System nicht installierbar sind).
+    local pkg cand available=() skipped=()
     for pkg in "${pkgs[@]}"; do
-        if apt-cache show "$pkg" >/dev/null 2>&1; then available+=("$pkg"); else w7_info "Paket nicht verfügbar, übersprungen: $pkg"; fi
+        cand="$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/ {print $2}')"
+        if [ -n "$cand" ] && [ "$cand" != "(none)" ]; then available+=("$pkg"); else skipped+=("$pkg"); fi
     done
-    w7_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${available[@]}"
+    [ ${#skipped[@]} -gt 0 ] && w7_info "Nicht verfügbar, übersprungen: ${skipped[*]}"
+    # Sammelinstallation; schlägt sie fehl, jedes Paket einzeln versuchen, damit ein
+    # einzelnes fehlendes/kaputtes Paket nicht die ganze Installation stoppt.
+    if ! w7_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${available[@]}"; then
+        w7_warn "Sammelinstallation fehlgeschlagen – installiere Pakete einzeln."
+        local failed=()
+        for pkg in "${available[@]}"; do
+            w7_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$pkg" >/dev/null 2>&1 || failed+=("$pkg")
+        done
+        [ ${#failed[@]} -gt 0 ] && w7_warn "Nicht installierbar (optional, wird übersprungen): ${failed[*]}"
+    fi
     # Anzeige-Manager + X-Server, falls noch keiner vorhanden
     if ! w7_display_manager_present; then
         w7_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -q xorg lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings
