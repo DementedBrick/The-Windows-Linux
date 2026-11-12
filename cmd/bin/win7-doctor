@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# TheWindowsLinux – Systemprüfung ("Doktor"): prüft das laufende System auf typische Sicherheits- und
+# Einrichtungslücken. Rein lesend – es wird nichts verändert.
+#
+#   win7-doctor            alle Prüfungen (als normaler Benutzer; mit sudo noch mehr)
+#   sudo win7-doctor       zusätzlich: Konten, Firewall-Regeln, SSH-Konfiguration, Prozesse an offenen Ports
+#   win7-doctor --fast     ohne die langsamen Dateisystem-Suchen (SUID, beschreibbare Dateien)
+#   win7-doctor --no-color Ausgabe ohne Farben
+#
+# Ausgabe: [ OK ] in Ordnung · [WARN] sollte behoben werden · [INFO] zur Kenntnis. Rückgabewert = Anzahl WARN.
+set -u
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DATADIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+FAST=0; COLOR=1
+for a in "$@"; do
+    case "$a" in
+        --fast) FAST=1 ;; --no-color) COLOR=0 ;;
+        -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+        *) echo "Unbekannte Option: $a" >&2; exit 2 ;;
+    esac
+done
+[ -t 1 ] || COLOR=0
+if [ $COLOR -eq 1 ]; then G=$'\033[32m'; Y=$'\033[33m'; B=$'\033[36m'; H=$'\033[1m'; Z=$'\033[0m'; else G=""; Y=""; B=""; H=""; Z=""; fi
+IS_ROOT=0; [ "$(id -u)" -eq 0 ] && IS_ROOT=1
+WARN=0; OKC=0; INFOC=0
+ok()   { OKC=$((OKC + 1));     printf '%s[ OK ]%s %s\n' "$G" "$Z" "$*"; }
+warn() { WARN=$((WARN + 1));   printf '%s[WARN]%s %s\n' "$Y" "$Z" "$*"; }
+info() { INFOC=$((INFOC + 1)); printf '%s[INFO]%s %s\n' "$B" "$Z" "$*"; }
+hint() { printf '       ↳ %s\n' "$*"; }
+sect() { printf '\n%s== %s ==%s\n' "$H" "$*" "$Z"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+# Gruppe/Andere dürfen schreiben? (folgt Symlinks: /bin → /usr/bin zählt mit dem Ziel)
+gow() { local p; p="$(stat -L -c %a "$1" 2>/dev/null)" || return 1; [[ "${p: -2:1}" =~ [2367] || "${p: -1}" =~ [2367] ]]; }
+needroot() { [ $IS_ROOT -eq 1 ] || { info "$1 (nur als root prüfbar: sudo win7-doctor)"; return 1; }; }
+
+printf '%sTheWindowsLinux Systemprüfung%s – %s, Kernel %s\n' "$H" "$Z" "$( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-Linux}")" "$(uname -r)"
+
+# ---------------------------------------------------------------- 1. Overlay
+sect "1. TheWindowsLinux-Installation"
+if [ -r "$DATADIR/VERSION" ]; then info "Version $(cat "$DATADIR/VERSION"), Stil $(sed -n 's/^STYLE=//p' "$DATADIR/style.conf" 2>/dev/null)"; fi
+case "$DATADIR" in
+    /usr/*|/opt/*|/etc/*)
+        bad="$(find "$DATADIR" ! -user root 2>/dev/null | head -3)"
+        if [ -n "$bad" ]; then warn "Systemdateien gehören nicht root (Rechteausweitung möglich): $(echo "$bad" | head -1) …"; hint "Neu installieren: sudo ./install.sh --system  (setzt Eigentümer und Rechte)"; else ok "Alle Dateien unter $DATADIR gehören root."; fi ;;
+esac
+wr="$(find "$DATADIR" \( -perm -g+w -o -perm -o+w \) ! -type l 2>/dev/null | head -3)"
+if [ -n "$wr" ]; then warn "Für Gruppe/Andere beschreibbare Overlay-Dateien: $(echo "$wr" | head -1) …"; hint "chmod -R go-w $DATADIR"; else ok "Keine für Gruppe/Andere beschreibbaren Overlay-Dateien."; fi
+for f in /etc/profile.d/thewindowslinux.sh /etc/sysctl.d/99-thewindowslinux.conf; do
+    [ -e "$f" ] || continue
+    if [ "$(stat -L -c '%U' "$f")" = root ] && ! gow "$f"; then ok "$f gehört root und ist nicht für andere beschreibbar."; else warn "$f ist nicht root-eigen oder für andere beschreibbar."; fi
+done
+
+# ---------------------------------------------------------------- 2. Updates
+sect "2. Updates"
+if have apt-get; then
+    sim="$(apt-get -s upgrade 2>/dev/null | grep '^Inst')"
+    n="$(printf '%s' "$sim" | grep -c .)"
+    s="$(printf '%s' "$sim" | grep -ci 'security')"
+    if [ "$s" -gt 0 ]; then warn "$s Sicherheitsupdates stehen aus ($n Updates insgesamt)."; hint "sudo apt update && sudo apt upgrade"
+    elif [ "$n" -gt 0 ]; then info "$n Updates verfügbar (keine als Sicherheitsupdate markiert)."; else ok "Keine ausstehenden Updates (Stand der Paketlisten)."; fi
+    st=/var/lib/apt/periodic/update-success-stamp
+    if [ -e "$st" ]; then age=$(( ($(date +%s) - $(stat -c %Y "$st")) / 86400 )); [ "$age" -gt 14 ] && warn "Paketlisten sind $age Tage alt." || ok "Paketlisten sind $age Tage alt."; fi
+    if dpkg -s unattended-upgrades >/dev/null 2>&1 && grep -Rqs 'Unattended-Upgrade "1"' /etc/apt/apt.conf.d/; then ok "Automatische Sicherheitsupdates sind aktiv."
+    else info "Automatische Sicherheitsupdates sind aus."; hint "sudo ./install.sh --system --harden  (oder: sudo apt install unattended-upgrades)"; fi
+elif have dnf; then
+    dnf -q check-update --security >/dev/null 2>&1; rc=$?
+    [ $rc -eq 100 ] && { warn "Sicherheitsupdates stehen aus."; hint "sudo dnf upgrade --security"; } || ok "Keine ausstehenden Sicherheitsupdates."
+elif have checkupdates; then
+    n="$(checkupdates 2>/dev/null | wc -l)"; [ "$n" -gt 0 ] && { warn "$n Updates stehen aus."; hint "sudo pacman -Syu"; } || ok "Keine ausstehenden Updates."
+else info "Paketmanager nicht erkannt – Updates bitte selbst prüfen."; fi
+[ -e /var/run/reboot-required ] && warn "Ein Neustart ist nötig (Kernel/Bibliotheken wurden aktualisiert)."
+
+# ---------------------------------------------------------------- 3. Firewall + Ports
+sect "3. Firewall und offene Ports"
+fw=""
+if have ufw; then
+    if [ $IS_ROOT -eq 1 ]; then ufw status 2>/dev/null | grep -qi 'Status: active' && fw=ufw; else systemctl is-active --quiet ufw 2>/dev/null && fw=ufw; fi
+fi
+have firewall-cmd && systemctl is-active --quiet firewalld 2>/dev/null && fw=firewalld
+if [ -z "$fw" ] && [ $IS_ROOT -eq 1 ] && have nft && [ "$(nft list ruleset 2>/dev/null | wc -l)" -gt 5 ]; then fw=nftables; fi
+if [ -n "$fw" ]; then ok "Firewall aktiv ($fw)."; else warn "Keine aktive Firewall gefunden."; hint "sudo ./install.sh --system --harden   (oder: sudo apt install ufw && sudo ufw enable)"; fi
+if have ss; then
+    listen="$(ss -tulnH 2>/dev/null | awk '{split($5,a,":"); addr=$5; sub(/:[0-9]+$/,"",addr); if (addr!="127.0.0.1" && addr!="[::1]" && addr!="127.0.0.53%lo" && addr!="127.0.0.54" && addr!="::1") print $1, $5}' | sort -u)"
+    cnt=$(printf '%s' "$listen" | grep -c .)
+    if [ "$cnt" -eq 0 ]; then ok "Keine von außen erreichbaren Dienste (nur lokale Ports)."
+    else
+        info "$cnt Port(s) lauschen auf allen/externen Adressen:"
+        printf '%s\n' "$listen" | head -12 | sed 's/^/         /'
+        [ "$cnt" -gt 12 ] && printf '         … %d weitere\n' $((cnt - 12))
+        hint "Prozess je Port: sudo ss -tulpn   ·   Nicht benötigte Dienste: sudo systemctl disable --now NAME"
+        [ -z "$fw" ] && warn "Es gibt offene Ports UND keine Firewall."
+    fi
+fi
+
+# ---------------------------------------------------------------- 4. SSH
+sect "4. SSH-Server"
+if [ -x /usr/sbin/sshd ] || have sshd; then
+    sshd_bin="$(command -v sshd || echo /usr/sbin/sshd)"
+    if [ $IS_ROOT -eq 1 ] && cfg="$("$sshd_bin" -T 2>/dev/null)"; then
+        prl="$(printf '%s\n' "$cfg" | awk '$1=="permitrootlogin"{print $2}')"; pa="$(printf '%s\n' "$cfg" | awk '$1=="passwordauthentication"{print $2}')"
+        case "$prl" in yes) warn "PermitRootLogin yes – Root-Anmeldung per Passwort erlaubt."; hint "sudo ./install.sh --system --harden" ;; *) ok "PermitRootLogin $prl" ;; esac
+        [ "$pa" = yes ] && info "PasswordAuthentication yes – besser: nur Schlüssel-Anmeldung." || ok "PasswordAuthentication $pa"
+    else
+        grep -Rhs '^[[:space:]]*PermitRootLogin[[:space:]]\+yes' /etc/ssh/sshd_config /etc/ssh/sshd_config.d 2>/dev/null | grep -q . && warn "PermitRootLogin yes in der SSH-Konfiguration." || info "SSH-Konfiguration nur als root vollständig prüfbar (sudo win7-doctor)."
+    fi
+    if systemctl is-active --quiet ssh 2>/dev/null || systemctl is-active --quiet sshd 2>/dev/null; then info "SSH-Server läuft."; else ok "SSH-Server ist installiert, läuft aber nicht."; fi
+else ok "Kein SSH-Server installiert."; fi
+
+# ---------------------------------------------------------------- 5. Konten
+sect "5. Benutzerkonten"
+if needroot "Konten-Prüfung"; then
+    empty="$(awk -F: '($2=="") {print $1}' /etc/shadow 2>/dev/null | head -5 | tr '\n' ' ')"
+    [ -n "$empty" ] && warn "Konten ohne Passwort: $empty" || ok "Keine Konten ohne Passwort."
+    uid0="$(awk -F: '($3==0 && $1!="root") {print $1}' /etc/passwd | tr '\n' ' ')"
+    [ -n "$uid0" ] && warn "Weitere Konten mit UID 0: $uid0" || ok "Nur root hat UID 0."
+    nopw="$(grep -Rhs 'NOPASSWD' /etc/sudoers /etc/sudoers.d 2>/dev/null | grep -v '^#' | head -3)"
+    [ -n "$nopw" ] && { info "sudo ohne Passwort erlaubt: $(echo "$nopw" | head -1)"; hint "Bei Live-Systemen normal; auf Installationen besser entfernen."; } || ok "Kein sudo ohne Passwort."
+    perm="$(stat -c %a /etc/shadow 2>/dev/null)"; case "$perm" in 640|600|000|400|0) ok "/etc/shadow Rechte $perm." ;; *) warn "/etc/shadow hat Rechte $perm (erwartet 640 oder strenger)." ;; esac
+fi
+id -nG 2>/dev/null | tr ' ' '\n' | grep -qx docker && info "Dein Benutzer ist in der Gruppe »docker« (gleichwertig zu root)."
+al="$(grep -Rhis '^[[:space:]]*\(autologin-user\|AutomaticLoginEnable\|Autologin\)' /etc/lightdm /etc/gdm3 /etc/sddm.conf /etc/sddm.conf.d 2>/dev/null | grep -vi 'autologin-user=$' | grep -vi 'false' | head -1)"
+[ -n "$al" ] && warn "Automatische Anmeldung ist aktiv ($al)." || ok "Keine automatische Anmeldung."
+
+# ---------------------------------------------------------------- 6. Kernel
+sect "6. Kernel- und Netzwerk-Einstellungen"
+chk() {  # chk SCHLÜSSEL MINDESTWERT BESCHREIBUNG [info]
+    local v; v="$(sysctl -n "$1" 2>/dev/null)" || { info "$1 nicht vorhanden"; return; }
+    if [ "$v" -ge "$2" ] 2>/dev/null; then ok "$3 ($1 = $v)"; else
+        if [ "${4:-}" = info ]; then info "$3 ($1 = $v)"; else warn "$3 ($1 = $v, erwartet ≥ $2)"; fi; hint "Setzen: sudo ./install.sh --system --harden"; fi
+}
+chk kernel.randomize_va_space 2 "Adressraum-Zufall (ASLR)"
+chk kernel.kptr_restrict 1 "Kernel-Adressen verborgen"
+chk kernel.dmesg_restrict 1 "dmesg nur für root"
+chk fs.protected_symlinks 1 "Schutz vor Symlink-Angriffen"
+chk fs.protected_hardlinks 1 "Schutz vor Hardlink-Angriffen"
+chk net.ipv4.tcp_syncookies 1 "SYN-Cookies"
+chk kernel.yama.ptrace_scope 1 "ptrace nur für Kindprozesse" info
+v="$(sysctl -n net.ipv4.conf.all.accept_redirects 2>/dev/null)"; [ "$v" = 0 ] && ok "ICMP-Redirects werden ignoriert." || info "ICMP-Redirects werden akzeptiert (net.ipv4.conf.all.accept_redirects = ${v:-?})."
+if have mokutil && mokutil --sb-state 2>/dev/null | grep -qi enabled; then ok "Secure Boot ist aktiv."
+elif [ -d /sys/firmware/efi ]; then info "UEFI-System, Secure Boot nicht aktiv oder nicht prüfbar."; else info "Kein UEFI (Secure Boot nicht zutreffend)."; fi
+if lsblk -no TYPE 2>/dev/null | grep -qx crypt; then ok "Datenträgerverschlüsselung (LUKS) wird verwendet."; else info "Keine Datenträgerverschlüsselung erkannt (bei Laptops empfehlenswert)."; fi
+if [ -d /sys/module/apparmor ] && [ "$(cat /sys/module/apparmor/parameters/enabled 2>/dev/null)" = Y ]; then ok "AppArmor ist aktiv."
+elif have getenforce && [ "$(getenforce 2>/dev/null)" = Enforcing ]; then ok "SELinux ist aktiv."
+else info "Weder AppArmor noch SELinux aktiv."; fi
+[ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ] && ok "Uhr ist per NTP synchronisiert." || info "Uhr nicht per NTP synchronisiert."
+
+# ---------------------------------------------------------------- 7. Dateirechte
+sect "7. Dateirechte und Umgebung"
+oldifs=$IFS; IFS=:
+for d in $PATH; do
+    [ -z "$d" ] && { warn "PATH enthält ein leeres Element (= aktuelles Verzeichnis, Hijacking-Gefahr)."; continue; }
+    [ -d "$d" ] || continue
+    own="$(stat -L -c %U "$d")"
+    if [ "$own" != "$(id -un)" ] && [ "$own" != root ]; then warn "PATH-Ordner $d gehört weder root noch dir (sondern $own)."
+    elif gow "$d"; then warn "PATH-Ordner $d ist für Gruppe/Andere beschreibbar."; fi
+done
+IFS=$oldifs
+ok "PATH geprüft."
+if [ -d "$HOME/.ssh" ]; then
+    badk="$(find "$HOME/.ssh" -maxdepth 1 -type f \( -name 'id_*' ! -name '*.pub' \) -perm /077 2>/dev/null | head -2)"
+    [ -n "$badk" ] && { warn "Private SSH-Schlüssel mit zu offenen Rechten: $badk"; hint "chmod 600 ~/.ssh/id_*"; } || ok "SSH-Schlüssel haben passende Rechte."
+fi
+if [ $FAST -eq 0 ]; then
+    if [ $IS_ROOT -eq 1 ]; then
+        ww="$(timeout 30 find /etc -xdev -type f -perm -o+w 2>/dev/null | head -3)"
+        [ -n "$ww" ] && warn "Für alle beschreibbare Dateien in /etc: $(echo "$ww" | head -1) …" || ok "Keine für alle beschreibbaren Dateien in /etc."
+    fi
+    sx="$(timeout 40 find /home /tmp /var/tmp /opt /usr/local /srv -xdev -type f \( -perm -4000 -o -perm -2000 \) 2>/dev/null | head -5)"
+    [ -n "$sx" ] && warn "SUID/SGID-Dateien an ungewöhnlichen Orten: $(echo "$sx" | head -2 | tr '\n' ' ')" || ok "Keine SUID/SGID-Dateien in Home, /tmp, /opt, /usr/local."
+else info "Dateisystem-Suchen übersprungen (--fast)."; fi
+
+# ---------------------------------------------------------------- 8. Dienste + Werkzeuge
+sect "8. Dienste und Werkzeuge"
+risky=""
+for u in telnet.socket rsh.socket rexec.socket vsftpd smbd nmbd rpcbind nfs-server snmpd tor; do
+    systemctl is-active --quiet "$u" 2>/dev/null && risky="$risky $u"
+done
+[ -n "$risky" ] && info "Aktive Netzwerkdienste:$risky  (nur wenn gewollt)" || ok "Keine riskanten Netzwerkdienste aktiv."
+for u in avahi-daemon cups-browsed; do systemctl is-active --quiet "$u" 2>/dev/null && info "$u läuft (Auto-Erkennung im Netz; abschaltbar, wenn nicht gebraucht)."; done
+tools=""; for t in nmap hydra john hashcat aircrack-ng sqlmap msfconsole wireshark ettercap bettercap; do have "$t" && tools="$tools $t"; done
+[ -n "$tools" ] && info "Pentest-Werkzeuge installiert:$tools – nur auf eigenen Systemen/mit Erlaubnis einsetzen." || info "Keine Pentest-Werkzeuge installiert (./install.sh --with-kali-tools)."
+
+# ---------------------------------------------------------------- Ergebnis
+printf '\n%s== Ergebnis ==%s\n' "$H" "$Z"
+printf '%d in Ordnung · %d Warnung(en) · %d Hinweis(e)\n' "$OKC" "$WARN" "$INFOC"
+[ $IS_ROOT -eq 0 ] && printf 'Tipp: mit »sudo win7-doctor« werden zusätzlich Konten, Firewall-Regeln und SSH-Einstellungen geprüft.\n'
+[ "$WARN" -gt 125 ] && WARN=125
+exit "$WARN"

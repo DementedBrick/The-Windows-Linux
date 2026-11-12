@@ -5,6 +5,7 @@ set -u
 
 w7_packages_debian() {
     local pkgs=(
+        xfce4-screensaver blueman pavucontrol gnome-keyring libpam-gnome-keyring xdg-desktop-portal-gtk
         xfce4 xfce4-goodies xfce4-whiskermenu-plugin xfce4-panel xfwm4 xfdesktop4 xfconf
         xfce4-session xfce4-settings xfce4-terminal thunar thunar-archive-plugin thunar-volman
         xfce4-appfinder xfce4-taskmanager xfce4-screenshooter xfce4-notifyd xfce4-pulseaudio-plugin
@@ -42,6 +43,7 @@ w7_packages_debian() {
 
 w7_packages_fedora() {
     local pkgs=(
+        xfce4-screensaver blueman pavucontrol gnome-keyring xdg-desktop-portal-gtk
         @xfce-desktop-environment xfce4-whiskermenu-plugin xfce4-panel xfwm4 xfdesktop xfconf
         xfce4-terminal thunar thunar-archive-plugin xfce4-appfinder xfce4-taskmanager xfce4-screenshooter
         xfce4-notifyd xfce4-pulseaudio-plugin xfce4-power-manager xfce4-clipman-plugin mousepad ristretto
@@ -60,6 +62,7 @@ w7_packages_fedora() {
 
 w7_packages_arch() {
     local pkgs=(
+        xfce4-screensaver blueman pavucontrol gnome-keyring xdg-desktop-portal-gtk
         xfce4 xfce4-goodies xfce4-whiskermenu-plugin thunar-archive-plugin thunar-volman
         mousepad ristretto parole galculator catfish gvfs gvfs-mtp xdg-utils xdg-user-dirs xdg-user-dirs-gtk
         xcursor-vanilla-dmz adwaita-icon-theme elementary-xfce-icons
@@ -67,8 +70,11 @@ w7_packages_arch() {
         libpulse libnotify tree psmisc procps-ng iproute2 network-manager-applet polkit-gnome
         file-roller unzip curl
     )
-    w7_root pacman -Sy --needed --noconfirm "${pkgs[@]}" || {
-        # einzeln versuchen, falls ein Paketname fehlt
+    # Auf Arch ist "pacman -Sy" ohne Upgrade ein unterstützter-Weg-ins-Nichts (Teil-Upgrades können das System
+    # beschädigen). Darum: vollständiges Upgrade zusammen mit der Installation (-Syu).
+    w7_info "Arch: führe ein vollständiges Systemupdate (pacman -Syu) zusammen mit der Installation durch."
+    w7_root pacman -Syu --needed --noconfirm "${pkgs[@]}" || {
+        # einzeln versuchen, falls ein Paketname fehlt (Datenbank ist nach dem ersten Lauf aktuell)
         local pkg; for pkg in "${pkgs[@]}"; do w7_root pacman -S --needed --noconfirm "$pkg" 2>/dev/null || w7_info "übersprungen: $pkg"; done
     }
     if ! w7_display_manager_present; then
@@ -79,6 +85,7 @@ w7_packages_arch() {
 
 w7_packages_suse() {
     local pkgs=(
+        xfce4-screensaver blueman pavucontrol gnome-keyring xdg-desktop-portal-gtk
         patterns-xfce-xfce xfce4-whiskermenu-plugin xfce4-terminal thunar mousepad ristretto galculator catfish
         gvfs xdg-utils xdg-user-dirs xdg-user-dirs-gtk dmz-icon-theme-cursors elementary-xfce-icon-theme adwaita-icon-theme
         google-noto-sans-fonts dejavu-fonts liberation-fonts terminus-bitmap-fonts pulseaudio-utils libnotify-tools tree psmisc procps iproute2
@@ -95,7 +102,8 @@ w7_packages_suse() {
 w7_packages_void() {
     w7_root xbps-install -Sy xfce4 xfce4-whiskermenu-plugin xfce4-terminal Thunar mousepad ristretto galculator catfish gvfs xdg-utils xdg-user-dirs xdg-user-dirs-gtk \
         xcursor-vanilla-dmz elementary-xfce-icon-theme adwaita-icon-theme noto-fonts-ttf dejavu-fonts-ttf liberation-fonts-ttf terminus-font \
-        pulseaudio-utils libnotify tree psmisc procps-ng iproute2 network-manager-applet polkit-gnome file-roller unzip curl
+        pulseaudio-utils libnotify tree psmisc procps-ng iproute2 network-manager-applet polkit-gnome file-roller unzip curl \
+        xfce4-screensaver blueman pavucontrol gnome-keyring xdg-desktop-portal-gtk
     if ! w7_display_manager_present; then
         w7_root xbps-install -Sy xorg-minimal xorg-fonts lightdm lightdm-gtk3-greeter
     fi

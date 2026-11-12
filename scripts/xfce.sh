@@ -1,128 +1,125 @@
 #!/usr/bin/env bash
 # TheWindowsLinux – Schritt 3: XFCE konfigurieren
-#   xfconf-Kanäle (Panel, Desktop, xfwm4, xsettings, Tastenkürzel, Thunar, Notifyd, Session, Appfinder),
+#   xfconf-Kanäle (Panel, Desktop, xfwm4, xsettings, Tastenkürzel, Thunar, Notifyd, Session, Appfinder, Terminal),
 #   Whisker-Menü, Panel-Starter, Terminalprofil, Thunar-Aktionen/Lesezeichen,
 #   Menüeinträge (Windows-Namen), Autostart, Umgebungsvariablen
+#
+#   Benutzermodus: ~/.config      Systemmodus: /etc/xdg (alle Benutzer) UND /etc/skel (neue Benutzer –
+#   Distributionen wie Kali legen dort eigene XFCE-Konfiguration ab, die sonst Vorrang hätte)
 # Wird von install.sh gesourct; nutzt lib/common.sh.
 set -u
+
+# Konfigurationswurzeln, in die geschrieben wird
+w7_xfce_roots() {
+    if [ "$W7_MODE" = system ]; then
+        printf '%s\n' /etc/xdg
+        [ -n "$W7_SKEL" ] && printf '%s\n' "$W7_SKEL/.config"
+    else
+        printf '%s\n' "$W7_XDG_CONF"
+    fi
+}
+
+# Gehört die Zieldatei der Distribution (existiert, stammt aber nicht von uns)?
+w7_foreign() { [ -e "$1" ] && ! grep -qxF -- "$1" "$W7_VARDIR/installed-files.txt" 2>/dev/null; }
+
+# Rendern; an GEMEINSAMEN Orten (shared=1, also /etc/xdg) wird nie eine Datei der Distribution überschrieben:
+# z. B. enthält deren xfce4-session.xml die Failsafe-Sitzung – ohne sie startet für niemanden ein Desktop.
+# Neue Benutzer bekommen unsere Fassung in ihr eigenes Profil (/etc/skel); xfconf führt beide Ebenen zusammen.
+w7_render_shared() {  # w7_render_shared SHARED QUELLE ZIEL
+    local shared="$1"; shift
+    if [ "$shared" = 1 ] && w7_foreign "$2"; then
+        w7_info "unverändert (gehört der Distribution): $2"
+        return 0
+    fi
+    w7_render "$@"
+}
+
+# xfconf-Kanäle schreiben (inkl. xfce4-terminal-Kanal aus dem Terminalprofil)
+w7_xfce_write_channels() {  # w7_xfce_write_channels ZIELVERZEICHNIS [shared]
+    local dir="$1" shared="${2:-0}" f rc tmpx
+    for f in "$W7_SRC"/theme/xfce4/xfconf/*.xml; do
+        w7_render_shared "$shared" "$f" "$dir/$(basename "$f")"
+    done
+    # xfce4-terminal ≥ 1.1 liest seine Einstellungen aus dem xfconf-Kanal statt aus terminalrc
+    rc="$(mktemp)"; tmpx="$(mktemp)"
+    w7_render_text "$W7_SRC/theme/xfce4/terminal/terminalrc" > "$rc"
+    w7_terminalrc_to_xfconf "$rc" > "$tmpx"
+    if ! { [ "$shared" = 1 ] && w7_foreign "$dir/xfce4-terminal.xml"; }; then w7_install "$tmpx" "$dir/xfce4-terminal.xml"; fi
+    rm -f "$rc" "$tmpx"
+}
+
+w7_xfce_write_root() {  # w7_xfce_write_root WURZEL
+    local root="$1" l ln f shared=0
+    [ "$W7_MODE" = system ] && [ "$root" = /etc/xdg ] && shared=1
+    w7_xfce_write_channels "$root/xfce4/xfconf/xfce-perchannel-xml" "$shared"
+    # Panel: Whisker-Menü + Starter
+    w7_render_shared "$shared" "$W7_SRC/theme/xfce4/panel/whiskermenu-1.rc" "$root/xfce4/panel/whiskermenu-1.rc"
+    for l in "$W7_SRC"/theme/xfce4/panel/launcher-*; do
+        ln="$(basename "$l")"
+        for f in "$l"/*.desktop; do w7_render_shared "$shared" "$f" "$root/xfce4/panel/$ln/$(basename "$f")"; done
+    done
+    # Terminal-Profil "Eingabeaufforderung" (Altformat) und Thunar-Aktionen
+    w7_render_shared "$shared" "$W7_SRC/theme/xfce4/terminal/terminalrc" "$root/xfce4/terminal/terminalrc"
+    w7_render_shared "$shared" "$W7_SRC/theme/xfce4/Thunar/uca.xml" "$root/Thunar/uca.xml"
+}
 
 w7_step_xfce() {
     w7_step "XFCE konfigurieren ($W7_MODE)"
     W7_CMD_LAUNCH="$W7_DATADIR/bin/win7-terminal"
     export W7_CMD_LAUNCH
 
-    local session_running=0
+    local session_running=0 root d f
     if [ "$W7_MODE" = user ] && w7_xfce_running; then
         session_running=1
-        # Laufende Komponenten schreiben ihren Speicherstand beim Beenden zurück und
-        # würden unsere frisch geschriebenen Dateien überschreiben → vorher beenden.
-        # (xfce4-panel speichert whiskermenu-*.rc / die Plugin-Liste beim Neustart.)
+        # Laufende Komponenten schreiben ihren Speicherstand beim Beenden zurück und würden unsere
+        # frisch geschriebenen Dateien überschreiben → vorher beenden.
         pkill -u "$(id -u)" -x xfce4-panel 2>/dev/null || true
         pkill -u "$(id -u)" -x xfconfd 2>/dev/null || true
         sleep 1
     fi
 
-    # --- xfconf-Kanäle ----------------------------------------------------------
-    local confdirs=("$W7_XDG_CONF/xfce4/xfconf/xfce-perchannel-xml")
+    while IFS= read -r root; do w7_xfce_write_root "$root"; done < <(w7_xfce_roots)
+    w7_ok "XFCE-Konfiguration geschrieben ($(w7_xfce_roots | tr '\n' ' '))"
+
     if [ "$W7_MODE" = system ]; then
         # Distributions-Overlays (Xubuntu, Mint ...) haben Vorrang vor /etc/xdg → dort ebenfalls ablegen
-        local d
         for d in /etc/xdg/xdg-*/xfce4/xfconf/xfce-perchannel-xml; do
-            [ -d "$d" ] && confdirs+=("$d")
+            [ -d "$d" ] && w7_xfce_write_channels "$d" 1
         done
-    fi
-    local dir f
-    for dir in "${confdirs[@]}"; do
-        w7_mkdir "$dir"
-        for f in "$W7_SRC"/theme/xfce4/xfconf/*.xml; do
-            local name; name="$(basename "$f")"
-            [ "$W7_MODE" = user ] && w7_backup "$dir/$name"
-            w7_render "$f" "$dir/$name"
-            w7_track "$dir/$name"
-        done
-    done
-    w7_ok "xfconf-Kanäle in ${confdirs[0]}"
-
-    # --- Panel: Whisker-Menü + Starter -------------------------------------------
-    local pdir="$W7_XDG_CONF/xfce4/panel"
-    [ "$W7_MODE" = user ] && w7_backup "$pdir"
-    w7_render "$W7_SRC/theme/xfce4/panel/whiskermenu-1.rc" "$pdir/whiskermenu-1.rc"
-    local l
-    for l in "$W7_SRC"/theme/xfce4/panel/launcher-*; do
-        local ln; ln="$(basename "$l")"
-        for f in "$l"/*.desktop; do
-            w7_render "$f" "$pdir/$ln/$(basename "$f")"
-        done
-    done
-    w7_track "$pdir/whiskermenu-1.rc"
-    w7_ok "Panel-Konfiguration in $pdir"
-
-    # --- Terminal-Profil "Eingabeaufforderung" -----------------------------------
-    local tdir="$W7_XDG_CONF/xfce4/terminal"
-    [ "$W7_MODE" = user ] && w7_backup "$tdir/terminalrc"
-    w7_render "$W7_SRC/theme/xfce4/terminal/terminalrc" "$tdir/terminalrc"
-    w7_track "$tdir/terminalrc"
-    # Neuere xfce4-terminal-Versionen (>= 1.1) lesen den xfconf-Kanal "xfce4-terminal" statt terminalrc
-    local tmpx; tmpx="$(mktemp)"
-    w7_terminalrc_to_xfconf "$tdir/terminalrc" > "$tmpx"
-    for dir in "${confdirs[@]}"; do
-        w7_install "$tmpx" "$dir/xfce4-terminal.xml"
-        w7_track "$dir/xfce4-terminal.xml"
-    done
-    rm -f "$tmpx"
-
-    # --- Thunar: Kontextmenü-Aktionen + Lesezeichen ------------------------------
-    [ "$W7_MODE" = user ] && w7_backup "$W7_XDG_CONF/Thunar/uca.xml"
-    w7_render "$W7_SRC/theme/xfce4/Thunar/uca.xml" "$W7_XDG_CONF/Thunar/uca.xml"
-    w7_track "$W7_XDG_CONF/Thunar/uca.xml"
-    if [ "$W7_MODE" = user ]; then
-        if [ ! -s "$W7_XDG_CONF/gtk-3.0/bookmarks" ]; then
-            w7_render "$W7_SRC/theme/xfce4/Thunar/bookmarks" "$W7_XDG_CONF/gtk-3.0/bookmarks"
-            w7_track "$W7_XDG_CONF/gtk-3.0/bookmarks"
-        fi
-        # deutsche XDG-Ordner anlegen, falls noch nicht vorhanden
+        # (GTK-Lesezeichen brauchen absolute Pfade: win7-firstrun legt sie beim ersten Login des Benutzers an)
+    else
+        [ -s "$W7_XDG_CONF/gtk-3.0/bookmarks" ] || w7_render "$W7_SRC/theme/xfce4/Thunar/bookmarks" "$W7_XDG_CONF/gtk-3.0/bookmarks"
         w7_have xdg-user-dirs-update && xdg-user-dirs-update 2>/dev/null || true
         mkdir -p "$HOME/Desktop" 2>/dev/null || true
-    else
-        w7_mkdir "$W7_SKEL/.config/gtk-3.0"
-        w7_render "$W7_SRC/theme/xfce4/Thunar/bookmarks" "$W7_SKEL/.config/gtk-3.0/bookmarks"
     fi
 
-    # --- Menüeinträge mit Windows-Namen ------------------------------------------
-    w7_mkdir "$W7_APPDIR"
+    # Menüeinträge mit Windows-Namen
     for f in "$W7_SRC"/theme/xfce4/applications/*.desktop; do
         w7_render "$f" "$W7_APPDIR/$(basename "$f")"
-        w7_track "$W7_APPDIR/$(basename "$f")"
     done
     w7_have update-desktop-database && w7_do update-desktop-database -q "$W7_APPDIR" 2>/dev/null || true
     w7_ok "Menüeinträge (Windows-Explorer, Eingabeaufforderung, Systemsteuerung, Editor, ...)"
 
-    # --- Autostart --------------------------------------------------------------
-    w7_mkdir "$W7_AUTOSTART"
+    # Autostart (Ersteinrichtung + Anmeldesound)
     for f in "$W7_SRC"/theme/xfce4/autostart/*.desktop; do
         w7_render "$f" "$W7_AUTOSTART/$(basename "$f")"
-        w7_track "$W7_AUTOSTART/$(basename "$f")"
     done
     # Ersteinrichtung soll beim nächsten Login (wieder) laufen
     [ "$W7_MODE" = user ] && rm -f "$W7_STATE/firstrun-done"
 
-    # --- Umgebungsvariablen (klassische Scrollbalken, Qt im GTK-Look) -------------
     w7_step_env
 
-    # --- Laufende Sitzung aktualisieren ---------------------------------------------
+    # Laufende Sitzung aktualisieren
     if [ $session_running -eq 1 ]; then
         w7_info "Laufende XFCE-Sitzung wird aktualisiert ..."
-        # WICHTIG: xfconfd muss unsere neuen Kanal-XML-Dateien geladen haben, BEVOR das Panel
-        # startet – sonst baut das Panel ein Standard-Layout und überschreibt unsere Config.
-        # Ein xfconf-query erzwingt das Nachladen (xfconfd wird per D-Bus gestartet).
-        local i
-        for i in $(seq 1 20); do
+        # xfconfd muss unsere neuen Kanal-Dateien geladen haben, BEVOR das Panel startet –
+        # sonst baut das Panel ein Standard-Layout und überschreibt unsere Konfiguration.
+        for _ in $(seq 1 20); do
             xfconf-query -c xfce4-panel -p /plugins/plugin-1 >/dev/null 2>&1 && break
             sleep 0.3
         done
         (xfsettingsd --replace >/dev/null 2>&1 &) ; sleep 1
         (xfwm4 --replace >/dev/null 2>&1 &)
-        # Panel wurde oben beendet → frisch starten, damit es die neue Konfiguration liest
         (nohup xfce4-panel >/dev/null 2>&1 &) ; sleep 2
         (xfdesktop --reload >/dev/null 2>&1 || (nohup xfdesktop >/dev/null 2>&1 &))
         "$W7_DATADIR/bin/win7-firstrun" --force >/dev/null 2>&1 || true
@@ -146,49 +143,35 @@ w7_terminalrc_to_xfconf() {
                 elif printf '%s' "$val" | grep -Eq '^-?[0-9]+\.[0-9]+$'; then type=double
                 else type=string; fi ;;
         esac
-        val="${val//&/&amp;}"; val="${val//</&lt;}"; val="${val//>/&gt;}"; val="${val//\"/&quot;}"
+        val="$(w7_xml_escape "$val")"
         printf '  <property name="%s" type="%s" value="%s"/>\n' "$name" "$type" "$val"
     done
     echo '</channel>'
 }
 
+# Umgebung für Sitzungen: klassische Scrollbalken (GTK_OVERLAY_SCROLLING=0), Programmpfad, Stil
 w7_step_env() {
     local block
-    block="$(cat <<'EOF'
+    block="$(cat <<EOF
 # >>> TheWindowsLinux >>>
 export GTK_OVERLAY_SCROLLING=0           # klassische Scrollbalken mit Pfeilen
-export QT_QPA_PLATFORMTHEME=gtk2         # Qt-Programme im GTK-Look (wenn qt5-gtk2-platformtheme installiert)
-export QT_STYLE_OVERRIDE=gtk2
-export WIN7_DATADIR="@DATADIR@"
-export WIN7_STYLE="@STYLE@"
-case ":$PATH:" in *":@BINDIR@:"*) ;; *) export PATH="@BINDIR@:$PATH" ;; esac
+export WIN7_DATADIR="$W7_DATADIR"
+export WIN7_STYLE="$W7_STYLE"
+case ":\$PATH:" in *":$W7_BINDIR:"*) ;; *) export PATH="$W7_BINDIR:\$PATH" ;; esac
 # <<< TheWindowsLinux <<<
 EOF
 )"
-    block="${block//@DATADIR@/$W7_DATADIR}"
-    block="${block//@BINDIR@/$W7_BINDIR}"
-    block="${block//@STYLE@/$W7_STYLE}"
     if [ "$W7_MODE" = system ]; then
-        printf '%s\n' "$block" | w7_root tee "$W7_PROFILE" >/dev/null
-        w7_track "$W7_PROFILE"
+        local tmp; tmp="$(mktemp)"
+        printf '%s\n' "$block" > "$tmp"
+        w7_install "$tmp" "$W7_PROFILE"
+        rm -f "$tmp"
     else
         touch "$W7_PROFILE"
-        if ! grep -q '>>> TheWindowsLinux >>>' "$W7_PROFILE"; then
-            w7_backup "$W7_PROFILE"
-            printf '\n%s\n' "$block" >> "$W7_PROFILE"
-        else
-            # Block ersetzen
-            local tmp; tmp="$(mktemp)"
-            awk -v blk="$block" '
-                /# >>> TheWindowsLinux >>>/ {skip=1; print blk; next}
-                /# <<< TheWindowsLinux <<</ {skip=0; next}
-                !skip {print}' "$W7_PROFILE" > "$tmp" && cat "$tmp" > "$W7_PROFILE"
-            rm -f "$tmp"
-        fi
-        # Auch für Shells, die nur ~/.bashrc lesen
-        if [ -f "$HOME/.bashrc" ] && ! grep -q 'WIN7_DATADIR' "$HOME/.bashrc"; then
-            printf '\n# TheWindowsLinux\nexport WIN7_DATADIR="%s"\nexport WIN7_STYLE="%s"\ncase ":$PATH:" in *":%s:"*) ;; *) export PATH="%s:$PATH" ;; esac\n' "$W7_DATADIR" "$W7_STYLE" "$W7_BINDIR" "$W7_BINDIR" >> "$HOME/.bashrc"
-        fi
+        # alten Block (falls vorhanden) entfernen, neuen anhängen – Rest der Datei bleibt byte-genau unberührt
+        sed -i '/# >>> TheWindowsLinux >>>/,/# <<< TheWindowsLinux <<</d' "$W7_PROFILE"
+        [ -s "$W7_PROFILE" ] && [ -n "$(tail -c1 "$W7_PROFILE")" ] && echo >> "$W7_PROFILE"   # fehlenden Zeilenumbruch ergänzen
+        printf '%s\n' "$block" >> "$W7_PROFILE"
     fi
     w7_ok "Umgebungsvariablen in $W7_PROFILE"
 }

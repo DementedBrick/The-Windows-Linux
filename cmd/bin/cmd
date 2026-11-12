@@ -19,7 +19,7 @@ case "${1:-}" in
     /k|/K|-k)
         shift
         tmp="$(mktemp "${TMPDIR:-/tmp}/win7cmd.XXXXXX")"
-        { printf '. %q\n' "$RC"; printf '%s\n' "$*"; } > "$tmp"
+        { printf 'rm -f -- %q\n' "$tmp"; printf '. %q\n' "$RC"; printf '%s\n' "$*"; } > "$tmp"   # löscht sich beim Einlesen selbst
         exec bash --rcfile "$tmp" -i
         ;;
     /\?|-h|--help)

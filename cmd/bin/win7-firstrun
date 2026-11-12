@@ -15,8 +15,12 @@ MARK_DIR="$CONF/thewindowslinux"
 GTKTHEME=Windows-Retro; WMTHEME=Windows-Retro; ICONTHEME=Windows-Retro; CURSOR=""; CURSORSIZE=32
 WALLPAPER="$DATADIR/wallpapers/retro.png"
 if [ -r "$DATADIR/style.conf" ]; then
-    # shellcheck disable=SC1091
-    . "$DATADIR/style.conf"
+    # Schlüssel=Wert einlesen (nur bekannte Schlüssel, kein "source" – kein Code aus der Datei wird ausgeführt)
+    while IFS='=' read -r key val; do
+        case "$key" in
+            GTKTHEME|WMTHEME|ICONTHEME|CURSOR|CURSORSIZE|WALLPAPER|UIFONT|UIFONTSIZE|MONOFONT|MONOFONTSIZE|AA|HINTSTYLE|RGBA) printf -v "$key" '%s' "$val" ;;
+        esac
+    done < "$DATADIR/style.conf"
 fi
 FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
@@ -82,6 +86,24 @@ if [ -r "$TERMRC" ]; then
         esac
     done
 fi
+
+# --- Explorer-Lesezeichen (GTK braucht absolute Pfade, darum hier und nicht in /etc/skel) ----
+BM="$CONF/gtk-3.0/bookmarks"
+if [ ! -s "$BM" ]; then
+    mkdir -p "$(dirname "$BM")"
+    for d in Downloads Dokumente Bilder Musik Videos; do printf 'file://%s/%s %s\n' "$HOME" "$d" "$d"; done > "$BM"
+fi
+
+# --- Schrift/Darstellung und Sitzung pro Benutzer (ergänzt die Systemdateien, ersetzt sie nicht) ----
+if [ -n "${UIFONT:-}" ]; then
+    xfconf-query -c xsettings -p /Gtk/FontName -n -t string -s "$UIFONT ${UIFONTSIZE:-9}" 2>/dev/null
+    xfconf-query -c xsettings -p /Gtk/MonospaceFontName -n -t string -s "${MONOFONT:-Monospace} ${MONOFONTSIZE:-10}" 2>/dev/null
+    xfconf-query -c xsettings -p /Xft/Antialias -n -t int -s "${AA:-1}" 2>/dev/null
+    xfconf-query -c xsettings -p /Xft/HintStyle -n -t string -s "${HINTSTYLE:-hintslight}" 2>/dev/null
+    xfconf-query -c xsettings -p /Xft/RGBA -n -t string -s "${RGBA:-rgb}" 2>/dev/null
+fi
+xfconf-query -c xfce4-session -p /general/SaveOnExit -n -t bool -s false 2>/dev/null     # keine "gespeicherte Sitzung" wie unter Windows
+xfconf-query -c xfce4-session -p /general/PromptOnLogout -n -t bool -s true 2>/dev/null
 
 # --- Desktop-Symbole --------------------------------------------------------------
 xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-home -n -t bool -s true 2>/dev/null

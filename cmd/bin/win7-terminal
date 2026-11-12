@@ -38,12 +38,12 @@ elif command -v konsole >/dev/null 2>&1; then
     [ -n "$WD" ] && args+=(--workdir "$WD")
     exec konsole "${args[@]}" -e "${run[@]}"
 elif command -v xterm >/dev/null 2>&1; then
-    [ -n "$WD" ] && cd "$WD"
+    [ -n "$WD" ] && { cd "$WD" || exit 1; }
     exec xterm -T "$TITLE" -bg black -fg gray75 -fa Monospace -fs 10 -geometry 100x30 -e "${run[@]}"
 elif command -v exo-open >/dev/null 2>&1; then
-    [ -n "$WD" ] && cd "$WD"
+    [ -n "$WD" ] && { cd "$WD" || exit 1; }
     exec exo-open --launch TerminalEmulator "${run[@]}"
 else
-    [ -n "$WD" ] && cd "$WD"
+    [ -n "$WD" ] && { cd "$WD" || exit 1; }
     exec x-terminal-emulator -e "${run[@]}"
 fi

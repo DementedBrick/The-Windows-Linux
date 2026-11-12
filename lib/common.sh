@@ -2,11 +2,13 @@
 # TheWindowsLinux – gemeinsame Funktionen für install.sh / uninstall.sh / scripts/*.sh
 # Wird gesourct, nicht ausgeführt.
 
-W7_VERSION="1.1.0"
+# shellcheck disable=SC2034   # wird von install.sh/uninstall.sh verwendet
+W7_VERSION="1.2.0"
 
 # ---------------------------------------------------------------------------
 # Ausgabe
 # ---------------------------------------------------------------------------
+# shellcheck disable=SC2034   # C_B wird von install.sh (usage) verwendet
 if [ -t 1 ]; then
     C_B=$'\033[1m'; C_BLUE=$'\033[1;34m'; C_GREEN=$'\033[1;32m'; C_YELLOW=$'\033[1;33m'; C_RED=$'\033[1;31m'; C_0=$'\033[0m'
 else
@@ -37,7 +39,7 @@ w7_detect_distro() {
         *debian*|*ubuntu*|*linuxmint*|*pop*|*elementary*|*zorin*|*kali*|*raspbian*|*mx*) W7_DISTRO=debian; W7_PKG=apt ;;
         *fedora*|*rhel*|*centos*|*rocky*|*alma*|*nobara*) W7_DISTRO=fedora; W7_PKG=dnf ;;
         *arch*|*manjaro*|*endeavouros*|*garuda*|*artix*|*cachyos*) W7_DISTRO=arch; W7_PKG=pacman ;;
-        *suse*|*opensuse*) W7_DISTRO=suse; W7_PKG=zypper ;;
+        *suse*) W7_DISTRO=suse; W7_PKG=zypper ;;
         *void*) W7_DISTRO=void; W7_PKG=xbps ;;
         *alpine*) W7_DISTRO=alpine; W7_PKG=apk ;;
         *gentoo*) W7_DISTRO=gentoo; W7_PKG=emerge ;;
@@ -93,6 +95,9 @@ w7_setup_paths() {
         W7_HOME_PLACEHOLDER="$HOME"
     fi
     W7_STATE="${XDG_CONFIG_HOME:-$HOME/.config}/thewindowslinux"
+    # Installationsliste und Original-Sicherungen: systemweit unter /var/lib, sonst neben dem Benutzerzustand
+    if [ "$W7_MODE" = system ]; then W7_VARDIR=/var/lib/thewindowslinux; else W7_VARDIR="$W7_STATE"; fi
+    export W7_VARDIR
     export W7_MODE W7_SRC W7_DATADIR W7_THEMEDIR W7_ICONDIR W7_FONTDIR W7_APPDIR W7_BINDIR W7_XDG_CONF W7_AUTOSTART W7_SKEL W7_PROFILE W7_STATE
 }
 
@@ -137,62 +142,101 @@ w7_setup_style() {
 # Schreibender Dateibefehl – im Systemmodus mit root-Rechten
 w7_do() { if [ "$W7_MODE" = system ]; then w7_root "$@"; else "$@"; fi; }
 
-w7_mkdir() { w7_do mkdir -p "$@"; }
+# Löschen mit Sicherheitsnetz: nie Wurzel-, Home- oder Systemverzeichnisse selbst, nie sehr kurze Pfade
+w7_rm_rf() {
+    local p="$1"
+    case "$p" in
+        ""|/|/usr|/etc|/var|/home|/root|/opt|/bin|/sbin|/lib|/lib64|/boot|/srv|/mnt|/tmp|"$HOME"|"$HOME"/)
+            w7_die "Verweigere das Löschen von »$p«." ;;
+    esac
+    [ "$(printf '%s' "$p" | tr -cd / | wc -c)" -ge 2 ] || w7_die "Verweigere das Löschen des zu kurzen Pfads »$p«."
+    w7_do rm -rf -- "$p"
+}
 
-# Datei kopieren (Quelle → Ziel), Zielverzeichnis anlegen
+# Datei-Listen in W7_VARDIR: installed-files.txt (gehört uns, darf bei uninstall gelöscht/restauriert werden)
+# und created-dirs.txt (von uns angelegte Ordner; werden nur entfernt, wenn sie leer sind)
+w7_list_add() {  # w7_list_add DATEI EINTRAG
+    w7_do mkdir -p "$W7_VARDIR"
+    grep -qxF -- "$2" "$W7_VARDIR/$1" 2>/dev/null || printf '%s\n' "$2" | w7_do tee -a "$W7_VARDIR/$1" >/dev/null
+}
+w7_track() { w7_list_add installed-files.txt "$1"; }
+
+# Das ORIGINAL einer Datei genau einmal sichern (nicht, wenn sie schon von uns stammt oder gesichert ist)
+w7_backup_once() {
+    local f="$1" orig
+    { [ -e "$f" ] || [ -L "$f" ]; } || return 0
+    grep -qxF -- "$f" "$W7_VARDIR/installed-files.txt" 2>/dev/null && return 0
+    orig="$W7_VARDIR/original/${f#/}"
+    { [ -e "$orig" ] || [ -L "$orig" ]; } && return 0
+    w7_do mkdir -p "$(dirname "$orig")"
+    w7_do cp -a -- "$f" "$orig"
+}
+
+# Ordner anlegen und den obersten dabei neu entstandenen Ordner für uninstall.sh vormerken
+w7_mkdir() {
+    local d p top
+    for d in "$@"; do
+        top=""; p="$d"
+        while [ -n "$p" ] && [ "$p" != / ] && [ ! -e "$p" ]; do top="$p"; p="$(dirname "$p")"; done
+        [ -n "$top" ] && w7_list_add created-dirs.txt "$top"
+    done
+    w7_do mkdir -p -- "$@"
+}
+
+# Datei kopieren (Quelle → Ziel): Original sichern, Zielordner anlegen, Datei vormerken
 w7_install() {  # w7_install [-m MODE] quelle ziel
     local mode=644
     if [ "$1" = -m ]; then mode="$2"; shift 2; fi
+    w7_backup_once "$2"
     w7_mkdir "$(dirname "$2")"
     w7_do install -m "$mode" "$1" "$2"
+    w7_track "$2"
 }
 
-# Verzeichnis rekursiv kopieren (Symlinks bleiben erhalten – wichtig für Cursor-Aliase)
-w7_copy_tree() {  # w7_copy_tree quelle zielverzeichnis
-    w7_mkdir "$2"
-    w7_do cp -a "$1"/. "$2"/
+# Verzeichnis rekursiv kopieren; Symlinks bleiben erhalten (wichtig für Cursor-Aliase).
+# Im Systemmodus gehören die Dateien IMMER root und sind nur für root schreibbar – sonst könnte der
+# Benutzer, der das Repository geklont hat, später Skripte verändern, die andere (auch root) ausführen.
+w7_copy_tree() {  # w7_copy_tree quelle ziel [clean]   (clean: Zielordner vorher ersetzen)
+    local src="$1" dst="$2"
+    if [ "${3:-}" = clean ]; then w7_backup_once "$dst"; w7_rm_rf "$dst"; fi
+    w7_mkdir "$dst"
+    if [ "$W7_MODE" = system ]; then
+        w7_root cp -a --no-preserve=ownership "$src"/. "$dst"/
+        w7_root chown -R root:root "$dst"
+        w7_root chmod -R u+rwX,go+rX,go-w "$dst"
+    else
+        cp -a "$src"/. "$dst"/
+    fi
+    w7_track "$dst"
 }
 
 # Platzhalter in einer Datei ersetzen und ans Ziel schreiben
 w7_sed_escape() { printf '%s' "$1" | sed -e 's/[&|\\]/\\&/g'; }
-w7_render() {  # w7_render quelle ziel [mode]
-    local src="$1" dst="$2" mode="${3:-644}" tmp
+w7_xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'; }
+
+w7_render_text() {  # w7_render_text QUELLE [xml]   – ersetzt @PLATZHALTER@ und gibt das Ergebnis auf stdout aus
+    local src="$1" kind="${2:-plain}" name ref val
+    local -a args=()
+    local -a vars=(WALLPAPER GTKTHEME WMTHEME ICONTHEME UIFONTSIZE UIFONT MONOFONTSIZE MONOFONT TITLEFONT
+                   CURSORSIZE CURSOR AA HINTSTYLE RGBA PANELSIZE PANELICON DESKICON DESKFONTSIZE STARTTITLE
+                   SHOWSTARTTITLE STARTICON TASKGROUP CLOCKFORMAT CLOCKLAYOUT SHADOW TITLESHADOW MOVEOPACITY
+                   MENUW MENUH CMD_LAUNCH CALC EDITOR_APP DATADIR)
+    for name in "${vars[@]}"; do
+        ref="W7_$name"; val="${!ref:-}"
+        [ "$kind" = xml ] && val="$(w7_xml_escape "$val")"
+        args+=(-e "s|@$name@|$(w7_sed_escape "$val")|g")
+    done
+    val="$W7_HOME_PLACEHOLDER"
+    [ "$kind" = xml ] && val="$(w7_xml_escape "$val")"
+    args+=(-e "s|@HOME@|$(w7_sed_escape "$val")|g")
+    sed "${args[@]}" "$src"
+}
+
+w7_render() {  # w7_render QUELLE ZIEL [MODE]   – rendern und installieren (in .xml-Dateien XML-escaped)
+    local src="$1" dst="$2" mode="${3:-644}" tmp kind=plain
+    case "$dst" in *.xml) kind=xml ;; esac
     tmp="$(mktemp)"
-    sed -e "s|@WALLPAPER@|$(w7_sed_escape "$W7_WALLPAPER")|g" \
-        -e "s|@GTKTHEME@|$(w7_sed_escape "$W7_GTKTHEME")|g" \
-        -e "s|@WMTHEME@|$(w7_sed_escape "$W7_WMTHEME")|g" \
-        -e "s|@ICONTHEME@|$(w7_sed_escape "$W7_ICONTHEME")|g" \
-        -e "s|@UIFONTSIZE@|$(w7_sed_escape "$W7_UIFONTSIZE")|g" \
-        -e "s|@UIFONT@|$(w7_sed_escape "$W7_UIFONT")|g" \
-        -e "s|@MONOFONTSIZE@|$(w7_sed_escape "$W7_MONOFONTSIZE")|g" \
-        -e "s|@MONOFONT@|$(w7_sed_escape "$W7_MONOFONT")|g" \
-        -e "s|@TITLEFONT@|$(w7_sed_escape "$W7_TITLEFONT")|g" \
-        -e "s|@CURSORSIZE@|$(w7_sed_escape "$W7_CURSORSIZE")|g" \
-        -e "s|@CURSOR@|$(w7_sed_escape "$W7_CURSOR")|g" \
-        -e "s|@AA@|$(w7_sed_escape "$W7_AA")|g" \
-        -e "s|@HINTSTYLE@|$(w7_sed_escape "$W7_HINTSTYLE")|g" \
-        -e "s|@RGBA@|$(w7_sed_escape "$W7_RGBA")|g" \
-        -e "s|@PANELSIZE@|$(w7_sed_escape "$W7_PANELSIZE")|g" \
-        -e "s|@PANELICON@|$(w7_sed_escape "$W7_PANELICON")|g" \
-        -e "s|@DESKICON@|$(w7_sed_escape "$W7_DESKICON")|g" \
-        -e "s|@DESKFONTSIZE@|$(w7_sed_escape "$W7_DESKFONTSIZE")|g" \
-        -e "s|@STARTTITLE@|$(w7_sed_escape "$W7_STARTTITLE")|g" \
-        -e "s|@SHOWSTARTTITLE@|$(w7_sed_escape "$W7_SHOWSTARTTITLE")|g" \
-        -e "s|@STARTICON@|$(w7_sed_escape "$W7_STARTICON")|g" \
-        -e "s|@TASKGROUP@|$(w7_sed_escape "$W7_TASKGROUP")|g" \
-        -e "s|@CLOCKFORMAT@|$(w7_sed_escape "$W7_CLOCKFORMAT")|g" \
-        -e "s|@CLOCKLAYOUT@|$(w7_sed_escape "$W7_CLOCKLAYOUT")|g" \
-        -e "s|@SHADOW@|$(w7_sed_escape "$W7_SHADOW")|g" \
-        -e "s|@TITLESHADOW@|$(w7_sed_escape "$W7_TITLESHADOW")|g" \
-        -e "s|@MOVEOPACITY@|$(w7_sed_escape "$W7_MOVEOPACITY")|g" \
-        -e "s|@MENUW@|$(w7_sed_escape "$W7_MENUW")|g" \
-        -e "s|@MENUH@|$(w7_sed_escape "$W7_MENUH")|g" \
-        -e "s|@CMD_LAUNCH@|$(w7_sed_escape "$W7_CMD_LAUNCH")|g" \
-        -e "s|@CALC@|$(w7_sed_escape "$W7_CALC")|g" \
-        -e "s|@EDITOR_APP@|$(w7_sed_escape "$W7_EDITOR_APP")|g" \
-        -e "s|@DATADIR@|$(w7_sed_escape "$W7_DATADIR")|g" \
-        -e "s|@HOME@|$(w7_sed_escape "$W7_HOME_PLACEHOLDER")|g" \
-        "$src" > "$tmp"
+    w7_render_text "$src" "$kind" > "$tmp"
     if grep -q '@[A-Z_]*@' "$tmp"; then
         w7_warn "Unersetzter Platzhalter in $(basename "$src"): $(grep -o '@[A-Z_]*@' "$tmp" | sort -u | tr '\n' ' ')"
     fi
@@ -200,17 +244,6 @@ w7_render() {  # w7_render quelle ziel [mode]
     rm -f "$tmp"
 }
 
-# Vorhandene Datei sichern (einmalig, mit Zeitstempel)
-w7_backup() {
-    local f="$1"
-    [ -e "$f" ] || return 0
-    local bdir="$W7_STATE/backup-$W7_RUN_ID"
-    mkdir -p "$bdir"
-    local rel="${f#/}"
-    mkdir -p "$bdir/$(dirname "$rel")"
-    cp -a "$f" "$bdir/$rel" 2>/dev/null || w7_do cp -a "$f" "$bdir/$rel"
-}
-w7_track() { mkdir -p "$W7_STATE"; printf '%s\n' "$1" >> "$W7_STATE/installed-files.txt"; }
 
 # ---------------------------------------------------------------------------
 # Erkennung von Schriften / Programmen

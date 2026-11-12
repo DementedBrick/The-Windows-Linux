@@ -11,6 +11,9 @@
 #  squashfs-tools, ~10 GB Platz, Internet. Dauer: 20-60 Minuten.
 #  Das Ergebnis liegt in iso/build/live-image-<arch>.hybrid.iso
 #
+#  Das Live-System meldet sich als "user" (Passwort "live") an – Standard von Debian live-config, bei einer
+#  Installation sofort ändern. Kali-Pakete/-Werkzeuge: siehe iso/build-kali-iso.sh.
+#
 #  HINWEIS: Dieser Build wurde in der Entwicklungsumgebung nur auf Syntax geprüft,
 #  nicht vollständig durchlaufen (live-build benötigt root, loop-Devices und viel Zeit).
 # ============================================================================
@@ -74,15 +77,20 @@ EOF
 
 # Projektdateien ins Chroot kopieren
 mkdir -p config/includes.chroot/opt/thewindowslinux
-cp -a "$SRC"/{install.sh,uninstall.sh,lib,scripts,cmd,theme,tools,README.md,LICENSE} config/includes.chroot/opt/thewindowslinux/
+# per tar kopieren: Eigentümer des Quellordners wird NICHT übernommen (sonst gehörten Systemdateien dem Klon-Benutzer)
+tar -C "$SRC" --exclude=.git --exclude=iso/build --exclude=iso/kali-build --exclude=__pycache__ -cf - \
+    install.sh uninstall.sh lib scripts cmd theme tools README.md LICENSE | tar -C config/includes.chroot/opt/thewindowslinux --no-same-owner -xf -
+chmod -R go-w config/includes.chroot/opt/thewindowslinux
 
 # Hook: Overlay systemweit installieren
 mkdir -p config/hooks/live
 cat > config/hooks/live/9000-thewindowslinux.hook.chroot <<EOF
 #!/bin/sh
 set -e
+chown -R root:root /opt/thewindowslinux
+chmod -R go-w /opt/thewindowslinux
 cd /opt/thewindowslinux
-W7_ALLOW_ROOT_USER=1 bash ./install.sh --system --no-packages --no-fonts --with-login --cmd-everywhere --style $STYLE --yes
+W7_ALLOW_ROOT_USER=1 bash ./install.sh --system --no-packages --with-login --cmd-everywhere --style $STYLE --yes
 # Live-Benutzer: Erstanmeldung-Skript läuft automatisch (Autostart)
 echo "TheWindowsLinux Live" > /etc/issue.thewindowslinux
 EOF

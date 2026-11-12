@@ -15,6 +15,7 @@ esac
 [ -e "$CONF/sounds-off" ] && exit 0
 
 name="${1%.wav}"
+case "$name" in ""|*/*|.*) echo "win7-sound: ungültiger Name" >&2; exit 2 ;; esac
 file=""
 for d in "$DATADIR/sounds" /usr/share/sounds/thewindowslinux /usr/local/share/sounds/thewindowslinux; do
     [ -f "$d/$name.wav" ] && { file="$d/$name.wav"; break; }

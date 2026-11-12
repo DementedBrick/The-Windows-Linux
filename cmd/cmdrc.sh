@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2164,SC2294,SC2033   # cd/return bewusst über $? ; eval nur für die generierten Wrapper-Funktionen
 # ============================================================================
 #  TheWindowsLinux – "Eingabeaufforderung"
 #  cmd.exe-artiges Terminal-Overlay für die bash
@@ -27,6 +28,13 @@ fi
 WIN7_CMD_LOADED=1
 export WIN7_CMD=1
 
+# Aliase aus der .bashrc (z. B. alias ls='ls --color=auto' oder unter Debian/Mint alias dir=...)
+# würden beim Einlesen der folgenden Funktionsdefinitionen expandiert und Syntaxfehler auslösen;
+# ein Syntaxfehler bricht das Laden dieser Datei ab, dann fehlen alle Windows-Befehle.
+# Darum ist die Alias-Expansion bis zum Dateiende aus (dort wird sie wieder eingeschaltet).
+shopt -u expand_aliases
+unalias dir 2>/dev/null     # Windows-DIR ersetzt "dir" vollständig
+
 # ----------------------------------------------------------------------------
 #  Grundeinstellungen
 # ----------------------------------------------------------------------------
@@ -44,6 +52,16 @@ case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in
     de*) WIN7_LANG=de ;;
     *)   WIN7_LANG=en; WIN7_TITLE="${WIN7_TITLE_EN:-Command Prompt}" ;;
 esac
+
+# Windows-übliche Variablen für die %NAME%-Erweiterung (nur Shell-Variablen, werden nicht exportiert)
+# shellcheck disable=SC2034
+{
+    : "${USERNAME:=${USER:-$(id -un 2>/dev/null)}}"
+    USERPROFILE="$HOME"; HOMEDRIVE="C:"; HOMEPATH="\\Users\\${USER:-$USERNAME}"
+    COMPUTERNAME="${HOSTNAME:-$(hostname 2>/dev/null)}"
+    TEMP="${TMPDIR:-/tmp}"; TMP="$TEMP"; APPDATA="$HOME/.config"; LOCALAPPDATA="$HOME/.local/share"
+    SystemRoot='C:\Windows'; windir="$SystemRoot"; SystemDrive="C:"; OS="TheWindowsLinux"
+}
 
 # Windows ist nicht case-sensitiv: Tab-Vervollständigung ebenfalls nicht
 bind 'set completion-ignore-case on' 2>/dev/null
@@ -209,35 +227,52 @@ __w7_winpath() {  # Unix-Pfad → Windows-Schreibweise
     printf '%s' "${p//\//\\}"
 }
 
+__w7_expand_vars() {  # %NAME% → Wert (nur gesetzte Variablen; Ergebnis in W7EXP)
+    local rest="$1" out="" name val
+    while [[ "$rest" =~ ^([^%]*)%([A-Za-z_][A-Za-z0-9_]*)%(.*)$ ]]; do
+        out+="${BASH_REMATCH[1]}"; name="${BASH_REMATCH[2]}"; rest="${BASH_REMATCH[3]}"
+        case "${name^^}" in
+            CD)   val="$(__w7_winpath "$PWD")" ;;
+            DATE) val="$(command date '+%d.%m.%Y')" ;;
+            TIME) val="$(command date '+%H:%M:%S')" ;;
+            *)    if [ -n "${!name+x}" ]; then val="${!name}"; else val="%$name%"; fi ;;
+        esac
+        out+="$val"
+    done
+    W7EXP="$out$rest"
+}
+
 __w7_unixpath() {  # Windows-Schreibweise → Unix-Pfad (lässt Unix-Pfade unverändert)
     local p="$1"
+    case "$p" in *%*%*) __w7_expand_vars "$p"; p="$W7EXP" ;; esac
     case "$p" in
-        [A-Za-z]:\\Users\\"$USER"|[A-Za-z]:\\Users\\"$USER"\\*)
-            p="${p#??\\Users\\"$USER"}"; p="$HOME${p//\\//}" ;;
-        [A-Za-z]:\\users\\"$USER"*)
-            p="${p#??\\users\\"$USER"}"; p="$HOME${p//\\//}" ;;
-        [A-Za-z]:\\*) p="${p#??}"; p="${p//\\//}" ;;
-        [A-Za-z]:/Users/"$USER"|[A-Za-z]:/Users/"$USER"/*|[A-Za-z]:/users/"$USER"|[A-Za-z]:/users/"$USER"/*)
-            p="${p#??/?sers/"$USER"}"; p="$HOME$p" ;;
-        [A-Za-z]:/*)  p="${p#??}" ;;
-        [A-Za-z]:)    p="/" ;;
-        *\\*)         p="${p//\\//}" ;;
-    esac
-    # %USERPROFILE%, %TEMP% usw.
-    case "$p" in
-        *%USERPROFILE%*|*%userprofile%*) p="${p//%USERPROFILE%/$HOME}"; p="${p//%userprofile%/$HOME}" ;;
+        [A-Za-z]:|[A-Za-z]:/*|[A-Za-z]:\\*|*\\*) p="${p//\\//}" ;;
     esac
     case "$p" in
-        *%TEMP%*|*%temp%*|*%TMP%*) p="${p//%TEMP%//tmp}"; p="${p//%temp%//tmp}"; p="${p//%TMP%//tmp}" ;;
+        [A-Za-z]:/[Uu]sers/"$USER"|[A-Za-z]:/[Uu]sers/"$USER"/*) p="$HOME${p#??/[Uu]sers/"$USER"}" ;;
+        [A-Za-z]:/*) p="${p#??}" ;;
+        [A-Za-z]:)   p="/" ;;
     esac
     printf '%s' "$p"
 }
 
-__w7_args() {  # alle Argumente nach Unix-Pfaden übersetzen, /x-Schalter entfernen; Ergebnis in W7ARGS
+# Sieht der Aufruf nach Windows aus? (Backslash, Laufwerk, %VAR%, /x-Schalter) – sonst wird Linux-Verhalten nie verändert.
+__w7_is_win_call() {
+    local a
+    for a in "$@"; do
+        case "$a" in
+            *\\*|[A-Za-z]:|[A-Za-z]:/*|%*%*) return 0 ;;
+        esac
+        if [ ! -e "$a" ] && [[ "$a" =~ ^/[A-Za-z]$ || "$a" =~ ^/[A-Za-z]:. || "$a" == '/?' ]]; then return 0; fi
+    done
+    return 1
+}
+
+__w7_args() {  # alle Argumente nach Unix-Pfaden übersetzen, /x-Schalter getrennt halten (W7ARGS / W7SWITCHES)
     W7ARGS=(); W7SWITCHES=()
     local a
     for a in "$@"; do
-        if [ ! -e "$a" ] && [[ "$a" =~ ^/-?[A-Za-z][A-Za-z]{0,7}(:.*)?$ ]]; then
+        if [ ! -e "$a" ] && [[ "$a" =~ ^/-?[A-Za-z]{1,2}(:.*)?$ || "$a" == '/?' ]]; then
             W7SWITCHES+=("${a,,}")
         else
             W7ARGS+=("$(__w7_unixpath "$a")")
@@ -247,7 +282,7 @@ __w7_args() {  # alle Argumente nach Unix-Pfaden übersetzen, /x-Schalter entfer
 
 __w7_has() { local s; for s in "${W7SWITCHES[@]}"; do [ "$s" = "$1" ] && return 0; done; return 1; }
 
-__w7_set_title() { printf '\033]0;%s\007' "$1"; }
+__w7_set_title() { local t="${1//[[:cntrl:]]/}"; printf '\033]0;%s\007' "$t"; }   # Steuerzeichen raus (Terminal-Escape-Injection)
 
 __w7_debug_trap() {
     [ -n "${COMP_LINE:-}" ] && return
@@ -277,6 +312,10 @@ command_not_found_handle() {
         fi
     fi
     __w7_t notfound "$cmd" >&2
+    # Paketvorschläge der Distribution (z. B. Ubuntu: "sudo apt install ...") nicht verlieren
+    if [ -x /usr/lib/command-not-found ]; then
+        timeout 3 /usr/lib/command-not-found -- "$cmd" 2>&1 | sed -n '1,6p' >&2
+    fi
     return 127
 }
 
@@ -284,32 +323,50 @@ command_not_found_handle() {
 #  Readline: Windows-Pfade mit Backslash vor dem Parsen retten
 #  (bash würde "C:\Users\user" sonst zu "C:Usersjan" machen)
 # ----------------------------------------------------------------------------
-__w7_win_cmds=" cd chdir dir copy xcopy robocopy move ren rename del erase md mkdir rd rmdir type attrib tree more find findstr comp fc mklink start explorer notepad wordpad mspaint certutil icacls cacls path "
+# Nur Windows-eigene Befehle bekommen die pauschale Umschreibung (Backslash → "/", " & " → " ; ").
+# Bei allen anderen Befehlen werden nur eindeutige Windows-Pfad-Wörter angefasst (C:\x, ..\x, dir\datei).
+__w7_win_cmds=" chdir dir copy xcopy robocopy move ren del erase md rd attrib mklink comp fc explorer notepad wordpad mspaint certutil icacls cacls type start "
+__w7_re1='^["'"'"']?([A-Za-z]:|\.\.?|%[A-Za-z_][A-Za-z0-9_]*%)\\[A-Za-z0-9_.~%$-]'
+__w7_re2='^[A-Za-z0-9_.~%$-]+(\\[A-Za-z0-9_.~%$-]+)+$'
+
+__w7_fix_token() {  # Ergebnis in W7TOK
+    W7TOK="$1"
+    if [[ "$1" == *\\* ]] && { [[ "$1" =~ $__w7_re1 ]] || [[ "$1" =~ $__w7_re2 ]]; }; then W7TOK="${1//\\//}"; fi
+}
+
 __w7_rewrite_line() {
-    local line="$READLINE_LINE" first tok out="" sep=""
+    local line="$READLINE_LINE" first win=0 out="" tok="" ch i n
+    [[ "$line" == *\\* || "$line" == *" & "* ]] || return 0
     first="${line%%[[:space:]]*}"; first="${first,,}"; first="${first%.exe}"
-    if [[ "$__w7_win_cmds" == *" $first "* ]] || [[ "$first" == cd* ]]; then
-        # Windows-Befehl: alle Backslashes sind Pfadtrenner, einzelnes "&" trennt Befehle
-        line="${line//\\//}"
+    case "$first" in
+        cd|cd..|cd/*|'cd\'*) win=1 ;;
+        *) [[ "$__w7_win_cmds" == *" $first "* ]] && win=1 ;;
+    esac
+    if [ $win -eq 1 ]; then
+        # "\ " (maskiertes Leerzeichen), "\;" und Ähnliches bleiben unberührt
+        line="$(printf '%s' "$line" | sed -E 's#\\([A-Za-z0-9_.~%$-])#/\1#g; s#([A-Za-z]:)\\#\1/#g; s#\\$#/#')"
+        # einzelnes " & " trennt Befehle wie in cmd (in bash würde es im Hintergrund starten)
         line="${line//&&/$'\x01'}"; line="${line// & / ; }"; line="${line//$'\x01'/&&}"
-        READLINE_LINE="$line"
     else
         [[ "$line" == *\\* ]] || return 0
         [[ "$line" == *\\ ]] && return 0        # Zeilenfortsetzung unangetastet lassen
-        # sonst nur Tokens, die eindeutig wie Windows-Pfade aussehen (C:\..., .\..., ..\..., %VAR%\...)
-        for tok in $line; do
-            if [[ "$tok" =~ ^[\"\']?([A-Za-z]:|\.\.?|%[A-Za-z_]+%)\\ ]]; then tok="${tok//\\//}"; fi
-            out="$out$sep$tok"; sep=" "
+        n=${#line}
+        for ((i = 0; i < n; i++)); do           # wortweise, ohne Dateinamen-Expansion und ohne Leerzeichen zu verändern
+            ch="${line:i:1}"
+            if [[ "$ch" == [[:space:]] ]]; then __w7_fix_token "$tok"; out+="$W7TOK$ch"; tok=""; else tok+="$ch"; fi
         done
-        [[ "$line" == *" " ]] && out="$out "
-        READLINE_LINE="$out"
+        __w7_fix_token "$tok"; out+="$W7TOK"
+        line="$out"
     fi
+    READLINE_LINE="$line"
     READLINE_POINT=${#READLINE_LINE}
 }
+# Enter (\C-m) UND Zeilenvorschub (\C-j, kommt bei Typeahead/Einfügen an) laufen über die Umschreibung
 if [[ $- == *i* ]] && [ -t 0 ]; then
+    bind '"\C-x\C-j": accept-line' 2>/dev/null
     bind -x '"\C-x\C-w": __w7_rewrite_line' 2>/dev/null
-    bind '"\C-m": "\C-x\C-w\C-j"' 2>/dev/null
-    bind '"\C-j": accept-line' 2>/dev/null
+    bind '"\C-m": "\C-x\C-w\C-x\C-j"' 2>/dev/null
+    bind '"\C-j": "\C-x\C-w\C-x\C-j"' 2>/dev/null
 fi
 
 # ----------------------------------------------------------------------------
@@ -317,8 +374,16 @@ fi
 # ----------------------------------------------------------------------------
 PS1='\n$(__w7_winpath "$PWD")>'
 PS2='Mehr? '
-PROMPT_COMMAND='__w7_set_title "$WIN7_TITLE"'
-trap '__w7_debug_trap' DEBUG
+# Fenstertitel setzen, ohne ein vorhandenes PROMPT_COMMAND (direnv, History-Sync, ...) zu überschreiben
+if [[ "$(declare -p PROMPT_COMMAND 2>/dev/null)" == "declare -a"* ]]; then
+    PROMPT_COMMAND+=('__w7_set_title "$WIN7_TITLE"')
+elif [ -z "${PROMPT_COMMAND:-}" ]; then
+    PROMPT_COMMAND='__w7_set_title "$WIN7_TITLE"'
+else
+    PROMPT_COMMAND="${PROMPT_COMMAND%;}; __w7_set_title \"\$WIN7_TITLE\""
+fi
+# DEBUG-Trap (zeigt den laufenden Befehl im Titel) nur, wenn nicht schon einer existiert (bash-preexec, starship, ...)
+[ -n "$(trap -p DEBUG)" ] || trap '__w7_debug_trap' DEBUG
 
 # ----------------------------------------------------------------------------
 #  Kernbefehle
@@ -327,18 +392,13 @@ cls() { printf '\033[2J\033[3J\033[H'; }
 
 cd() {
     local target
-    if [ $# -eq 0 ]; then __w7_winpath "$PWD"; echo; return 0; fi
+    case "${1:-}" in -|-P|-L|-e|-@|--) builtin cd "$@"; return ;; esac    # "cd -" und bash-Optionen
     case "${1,,}" in /d) shift ;; esac
-    [ $# -eq 0 ] && { __w7_winpath "$PWD"; echo; return 0; }
+    if [ $# -eq 0 ]; then __w7_winpath "$PWD"; echo; return 0; fi
     target="$(__w7_unixpath "$*")"
-    case "$target" in
-        ..*) ;;  # "cd.." wird unten behandelt
-    esac
     if ! builtin cd -- "$target" 2>/dev/null; then
-        case "${target,,}" in
-            ~) builtin cd ;;
-            *) if [ -e "$target" ]; then __w7_t denied >&2; else __w7_t nopath >&2; fi; return 1 ;;
-        esac
+        if [ -e "$target" ]; then __w7_t denied >&2; else __w7_t nopath >&2; fi
+        return 1
     fi
 }
 chdir() { cd "$@"; }
@@ -374,7 +434,7 @@ dir() {
             local matches=()
             local IFS=$'\n'
             # shellcheck disable=SC2206
-            matches=( $(compgen -G "$target" 2>/dev/null) )
+            mapfile -t matches < <(compgen -G "$target" 2>/dev/null)
             unset IFS
             if [ ${#matches[@]} -eq 0 ]; then __w7_t nofile >&2; continue; fi
             [ $first -eq 1 ] && [ $bare -eq 0 ] && { __w7_dir_header "$(dirname "${matches[0]}")"; first=0; }
@@ -503,7 +563,9 @@ ren() {
     [ ${#W7ARGS[@]} -ne 2 ] && { __w7_err "REN alt neu"; return 1; }
     mv -- "${W7ARGS[0]}" "$(dirname -- "${W7ARGS[0]}")/$(basename -- "${W7ARGS[1]}")"
 }
-rename() { ren "$@"; }
+rename() {   # Windows: rename alt neu · Linux (Perl/util-linux rename): s/x/y/, Optionen, mehrere Dateien → echtes Programm
+    if [ -n "$(type -P rename)" ] && { [ $# -ne 2 ] || [[ "$1" == -* || "$1" =~ ^(s|y|tr)/ ]]; }; then command rename "$@"; else ren "$@"; fi
+}
 del() {
     __w7_args "$@"
     [ ${#W7ARGS[@]} -eq 0 ] && { __w7_err "DEL Datei [...] [/Q /F /S /P]"; return 1; }
@@ -532,7 +594,7 @@ del() {
 }
 erase() { del "$@"; }
 md() { __w7_args "$@"; command mkdir -p -- "${W7ARGS[@]}"; }
-mkdir() { __w7_args "$@"; command mkdir -p -- "${W7ARGS[@]}"; }
+mkdir() { if __w7_is_win_call "$@"; then md "$@"; else command mkdir "$@"; fi; }
 rd() {
     __w7_args "$@"
     [ ${#W7ARGS[@]} -eq 0 ] && { __w7_err "RD Verzeichnis [/S /Q]"; return 1; }
@@ -542,7 +604,7 @@ rd() {
         command rmdir -- "${W7ARGS[@]}"
     fi
 }
-rmdir() { rd "$@"; }
+rmdir() { if __w7_is_win_call "$@"; then rd "$@"; else command rmdir "$@"; fi; }
 mklink() {
     __w7_args "$@"
     [ ${#W7ARGS[@]} -ne 2 ] && { __w7_err "MKLINK [/D] Link Ziel"; return 1; }
@@ -561,22 +623,26 @@ attrib() {
     done
 }
 tree() {
+    local a
+    for a in "$@"; do        # Linux-tree-Optionen (-L, -a, -I ...) gehen unverändert an das echte Programm
+        case "$a" in -*) [ -n "$(type -P tree)" ] && { command tree "$@"; return; } ;; esac
+    done
     __w7_args "$@"
     local d="${W7ARGS[0]:-.}"
     __w7_t tree_hdr
-    echo "$(__w7_winpath "$(cd "$d" && pwd)")"
-    if command -v tree >/dev/null 2>&1; then
+    __w7_winpath "$(builtin cd "$d" && pwd)"; echo
+    if [ -n "$(type -P tree)" ]; then
         local o=(-d --noreport)
         __w7_has /f && o=(--noreport)
         __w7_has /a || o+=(--charset=utf8)
         command tree "${o[@]}" -- "$d" | tail -n +2
     else
-        find "$d" -mindepth 1 \( -name '.*' -prune \) -o -print 2>/dev/null | sed -e "s|^$d/||" -e 's|[^/]*/|   |g' -e 's|^\(\s*\)\([^ ]\)|\1├───\2|'
+        command find "$d" -mindepth 1 \( -name '.*' -prune \) -o -print 2>/dev/null | sed -e "s|^$d/||" -e 's|[^/]*/|   |g' -e 's|^\(\s*\)\([^ ]\)|\1├───\2|'
     fi
 }
-more() { if [ $# -eq 0 ]; then command more; else __w7_args "$@"; command more -- "${W7ARGS[@]}"; fi; }
+more() { if [ $# -eq 0 ]; then command more; elif __w7_is_win_call "$@"; then __w7_args "$@"; command more -- "${W7ARGS[@]}"; else command more "$@"; fi; }
 comp() { __w7_args "$@"; diff -- "${W7ARGS[@]}" && echo "OK"; }
-fc() { comp "$@"; }
+fc() { if [ $# -ge 2 ] && [[ "$1" != -* ]]; then comp "$@"; else builtin fc "$@"; fi; }   # fc -l usw. = bash-History
 find() {  # Windows-FIND (Textsuche) – echte find-Aufrufe (Pfad/Option zuerst) werden durchgereicht
     case "$1" in
         ""|-*|.|..|/*|~*) command find "$@"; return ;;
@@ -618,18 +684,12 @@ vol() { __w7_dir_header "${1:-.}"; }
 echo.() { builtin echo; }
 # echo mit %VAR%-Erweiterung (wie cmd): %USERPROFILE%, %PATH%, %FOO% ...
 # Undefinierte Variablen bleiben wörtlich stehen, %% wird zu %.
-echo() {
+echo() {   # wie bash-echo (inkl. -n/-e/-E), erweitert zusätzlich %VAR% wie cmd
+    local -a opts=()
+    while [[ "${1:-}" =~ ^-[neE]+$ ]]; do opts+=("$1"); shift; done
     case "$*" in
-        *%*)
-            local out="$*" guard=0
-            while [ $guard -lt 64 ] && [[ "$out" =~ %([A-Za-z_][A-Za-z0-9_]*)% ]]; do
-                local var="${BASH_REMATCH[1]}"
-                out="${out//"%${var}%"/${!var-}}"
-                guard=$((guard + 1))
-            done
-            out="${out//%%/%}"
-            builtin printf '%s\n' "$out" ;;
-        *) builtin echo "$@" ;;
+        *%*%*) __w7_expand_vars "$*"; builtin echo "${opts[@]}" "$W7EXP" ;;
+        *)     builtin echo "${opts[@]}" "$@" ;;
     esac
 }
 rem() { :; }
@@ -655,7 +715,7 @@ set() {  # SET → Umgebung, SET X=y → setzen, SET /P X=Prompt → einlesen
     case "${1,,}" in
         /p) shift; local kv name prompt; kv="$*"; name="${kv%%=*}"; prompt="${kv#*=}"; read -r -p "$prompt" "${name?}"; export "${name?}"; return ;;
         /a) shift; local kv name expr; kv="$*"; name="${kv%%=*}"; expr="${kv#*=}"; printf -v "${name?}" '%s' "$((expr))"; export "${name?}"; echo "${!name}"; return ;;
-        -*|+*|--) builtin set "$@"; return ;;
+        -*|+*) builtin set "$@"; return ;;
     esac
     case "$*" in
         *=*) local kv name val; kv="$*"; name="${kv%%=*}"; val="${kv#*=}"; export "${name?}=$val" ;;
@@ -674,10 +734,10 @@ date() {
         *) command date "$@" ;;
     esac
 }
-__w7_time() {
-    case "${1,,}" in
-        ""|/t) __w7_t time "$(command date '+%H:%M:%S,%N' | cut -c1-11)" ;;
-        *) command time "$@" ;;
+__w7_time() {   # "time" ist in bash ein Schlüsselwort: Funktion VOR dem Alias definieren, damit hier das Schlüsselwort gilt
+    case "${1:-}" in
+        ""|/t|/T) __w7_t time "$(command date '+%H:%M:%S,%N' | cut -c1-11)" ;;
+        *) time "$@" ;;
     esac
 }
 alias time='__w7_time'   # "time" ist in bash ein reserviertes Wort
@@ -773,6 +833,7 @@ taskkill() {
         shift
     done
     if [ -n "$pid" ]; then
+        [ -n "$tree" ] && pkill $force -P "$pid" 2>/dev/null      # /T: auch alle Kindprozesse beenden
         kill $force "$pid" 2>/dev/null && __w7_t killed "$pid" || { __w7_t nokill "$pid" >&2; return 128; }
     elif [ -n "$im" ]; then
         pkill $force -x -- "$im" 2>/dev/null && __w7_t killed_im "$im" || { __w7_t nokill "$im" >&2; return 128; }
@@ -819,9 +880,11 @@ ipconfig() {
         echo; return 0
     fi
     local ifc
-    for ifc in $(ls /sys/class/net 2>/dev/null); do
+    local ifp
+    for ifp in /sys/class/net/*; do
+        ifc="${ifp##*/}"
         local kind="adapter" state ip4 ip6 mask mac gw dns
-        case "$ifc" in lo) kind="ladapter" ;; wl*|wifi*|wlan*) kind="wadapter" ;; esac
+        case "$ifc" in lo) kind="ladapter" ;; wl*|wifi*) kind="wadapter" ;; esac
         [ "$ifc" = lo ] && [ $all -eq 0 ] && continue
         state="$(cat /sys/class/net/"$ifc"/operstate 2>/dev/null)"
         mac="$(cat /sys/class/net/"$ifc"/address 2>/dev/null | tr 'a-f' 'A-F' | tr ':' '-')"
@@ -852,23 +915,30 @@ __w7_cidr2mask() {
     done
     printf '%s' "$m"
 }
-getmac() { local i; for i in $(ls /sys/class/net); do [ "$i" = lo ] && continue; printf '%-16s %s\n' "$i" "$(cat /sys/class/net/"$i"/address | tr 'a-f' 'A-F' | tr ':' '-')"; done; }
-ping() {
-    local args=() cont=0 cnt=0 a
-    for a in "$@"; do
+getmac() { local p i; for p in /sys/class/net/*; do i="${p##*/}"; [ "$i" = lo ] && continue; printf '%-16s %s\n' "$i" "$(tr 'a-f' 'A-F' < "$p/address" | tr ':' '-')"; done; }
+ping() {   # Linux-Syntax bleibt; Windows-Formen nur wenn eindeutig: "-t" ohne Zahl (endlos), "-n <Zahl>" (Anzahl)
+    local -a in=("$@") args=()
+    local i n=${#in[@]} a nxt cont=0 count=0 host=0
+    for ((i = 0; i < n; i++)); do
+        a="${in[i]}"; nxt="${in[i+1]:-}"
         case "$a" in
-            -t) cont=1 ;;
-            -n) cnt=1; args+=(-c) ;;
-            -l) args+=(-s) ;;
-            -4|-6|-c|-i|-s|-w|-W) args+=("$a"); [ "$a" = -c ] && cnt=1 ;;
-            *) args+=("$a") ;;
+            -t)       if [[ "$nxt" =~ ^[0-9]+$ ]]; then args+=("$a"); else cont=1; fi ;;
+            -n)       if [[ "$nxt" =~ ^[0-9]+$ ]]; then args+=(-c); count=1; else args+=("$a"); fi ;;
+            -c|-w|-f) count=1; args+=("$a") ;;
+            -*)       args+=("$a") ;;
+            *)        host=1; args+=("$a") ;;
         esac
     done
-    [ $cont -eq 0 ] && [ $cnt -eq 0 ] && args=(-c 4 "${args[@]}")
+    [ $cont -eq 0 ] && [ $count -eq 0 ] && [ $host -eq 1 ] && args=(-c 4 "${args[@]}")   # Windows pingt standardmäßig 4-mal
     command ping "${args[@]}"
 }
 tracert() { if command -v traceroute >/dev/null 2>&1; then traceroute "$@"; elif command -v tracepath >/dev/null 2>&1; then tracepath "$@"; else command -v mtr >/dev/null 2>&1 && mtr -rw "$@" || __w7_err "traceroute/tracepath nicht installiert"; fi; }
-netstat() { if command -v ss >/dev/null 2>&1; then ss -tunap 2>/dev/null; else command netstat "$@"; fi; }
+netstat() {
+    if [ $# -gt 0 ]; then
+        if [ -n "$(type -P netstat)" ]; then command netstat "$@"; else ss "$@"; fi
+    elif command -v ss >/dev/null 2>&1; then ss -tunap 2>/dev/null
+    else command netstat; fi
+}
 net() {
     case "${1,,}" in
         user|users)
@@ -884,7 +954,7 @@ net() {
         share) cat /etc/exports 2>/dev/null; command -v smbstatus >/dev/null 2>&1 && smbstatus -S 2>/dev/null ;;
         session) who ;;
         time) command date ;;
-        *) echo "NET [ USER | START | STOP | STATISTICS | VIEW | USE | SHARE | SESSION | TIME ]" ;;
+        *) if [ $# -gt 0 ] && [ -n "$(type -P net)" ]; then command net "$@"; else echo "NET [ USER | START | STOP | STATISTICS | VIEW | USE | SHARE | SESSION | TIME ]"; fi ;;
     esac
 }
 sc() {
@@ -893,7 +963,7 @@ sc() {
         start)   sudo systemctl start "$2" ;;
         stop)    sudo systemctl stop "$2" ;;
         config)  sudo systemctl "$( [ "${3,,}" = "start=auto" ] && echo enable || echo disable)" "$2" ;;
-        *) echo "SC [query|start|stop|config] Dienst" ;;
+        *) if [ $# -gt 0 ] && [ -n "$(type -P sc)" ]; then command sc "$@"; else echo "SC [query|start|stop|config] Dienst"; fi ;;
     esac
 }
 chkdsk() { __w7_args "$@"; df -h "${W7ARGS[@]:-/}"; echo; echo "Hinweis/Note: Reparatur = fsck (als root, Laufwerk ausgehängt)."; }
@@ -918,16 +988,19 @@ assoc() {
 }
 ftype() { assoc "$@"; }
 shutdown() {
-    local action="" t=0
+    local action="" t=0 a win=0
     [ $# -eq 0 ] && { __w7_t shutdown_use; return 1; }
+    # Linux-Syntax (shutdown now, -h now, -r +5, -c ...) geht unverändert an das echte Programm
+    for a in "$@"; do case "$a" in /*) win=1 ;; esac; done
+    if [ $win -eq 0 ]; then command shutdown "$@"; return; fi
     while [ $# -gt 0 ]; do
         case "${1,,}" in
-            /s|-s) action=poweroff ;; /r|-r) action=reboot ;; /l|-l) action=logout ;; /h|-h) action=hibernate ;;
-            /a|-a) action=abort ;; /t|-t) t="${2:-0}"; shift ;; /p) action=poweroff ;; /f) ;;
-            -*) command shutdown "$@"; return ;;
+            /s|/p) action=poweroff ;; /r) action=reboot ;; /l) action=logout ;; /h) action=hibernate ;;
+            /a) action=abort ;; /t) t="${2:-0}"; shift ;; /f) ;;
         esac
         shift
     done
+    [[ "$t" =~ ^[0-9]+$ ]] || t=0
     case "$action" in
         logout)    xfce4-session-logout --logout 2>/dev/null || loginctl terminate-session "$XDG_SESSION_ID" ;;
         hibernate) systemctl hibernate ;;
@@ -957,7 +1030,7 @@ __w7_gui() {  # Programm abgekoppelt starten
 explorer() { __w7_args "$@"; __w7_gui "$(__w7_first_of thunar nautilus pcmanfm nemo dolphin caja xdg-open)" "${W7ARGS[@]:-.}"; }
 notepad()  { __w7_args "$@"; __w7_gui "$(__w7_first_of "${WIN7_EDITOR_APP:-}" mousepad gedit pluma leafpad xed kate featherpad)" "${W7ARGS[@]}"; }
 wordpad()  { __w7_args "$@"; __w7_gui "$(__w7_first_of abiword libreoffice lowriter mousepad)" "${W7ARGS[@]}"; }
-calc()     { __w7_gui "$(__w7_first_of galculator gnome-calculator mate-calc qalculate-gtk kcalc xcalc)"; }
+calc() { if [ $# -gt 0 ] && [ -n "$(type -P calc)" ]; then command calc "$@"; else __w7_gui "$(__w7_first_of galculator gnome-calculator mate-calc qalculate-gtk kcalc xcalc)"; fi; }
 mspaint()  { __w7_args "$@"; __w7_gui "$(__w7_first_of pinta drawing kolourpaint gimp mtpaint)" "${W7ARGS[@]}"; }
 control()  { __w7_gui "$(__w7_first_of xfce4-settings-manager gnome-control-center systemsettings)"; }
 taskmgr()  { __w7_gui "$(__w7_first_of xfce4-taskmanager gnome-system-monitor ksysguard mate-system-monitor htop)"; }
@@ -1006,10 +1079,14 @@ start() {
 }
 
 # Pfadübersetzung für häufige Linux-Werkzeuge (C:\...-Argumente funktionieren auch dort)
+# Nur bei eindeutig Windows-artigen Argumenten (C:\x, ..\x, /s-Schalter) wird übersetzt; sonst unverändert durchgereicht.
 for __w7_c in ls cat cp mv rm touch less head tail nano vim vi stat file wc; do
-    eval "${__w7_c}() { __w7_args \"\$@\"; command ${__w7_c} \"\${W7ARGS[@]}\" \"\${W7SWITCHES[@]/#\\//-}\"; }"
+    eval "${__w7_c}() { if __w7_is_win_call \"\$@\"; then __w7_args \"\$@\"; command ${__w7_c} \"\${W7SWITCHES[@]/#\\//-}\" \"\${W7ARGS[@]}\"; else command ${__w7_c} \"\$@\"; fi; }"
 done
 unset __w7_c
+
+# Alias-Expansion wieder einschalten (war während des Ladens aus, siehe oben)
+shopt -s expand_aliases
 
 # Beliebte Tippfehler/Abkürzungen
 alias cd.='cd .'

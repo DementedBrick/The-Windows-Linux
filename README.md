@@ -48,6 +48,8 @@ sudo ./install.sh --system --with-login     # für alle Benutzer + Anmeldebildsc
 sudo ./install.sh --full                    # alles: System, Login, GRUB, Plymouth, cmd überall
 ./install.sh --no-packages                  # XFCE ist schon da, nur Overlay anwenden
 ./install.sh --cmd-everywhere               # jedes Terminal wird zur Eingabeaufforderung
+sudo ./install.sh --system --harden         # System absichern (Firewall, Auto-Updates, Kernel, SSH)
+sudo ./install.sh --system --with-kali-tools   # Kali-Werkzeuge (siehe unten)
 ./install.sh --help                         # alle Optionen
 ```
 
@@ -61,10 +63,18 @@ Der Installer
 4. richtet das cmd-Overlay ein,
 5. optional: LightDM-Greeter, GRUB-Hintergrund, Plymouth-Boot-Splash.
 
-Läuft bereits eine XFCE-Sitzung, wird sie sofort aktualisiert. Vorhandene
-Konfigurationsdateien werden nach `~/.config/thewindowslinux/backup-<datum>/` gesichert.
+Läuft bereits eine XFCE-Sitzung, wird sie sofort aktualisiert. Vorhandene eigene
+Konfigurationsdateien werden beim ersten Installieren gesichert (`~/.config/thewindowslinux/original/`
+bzw. `/var/lib/thewindowslinux/original/`) und bei der Deinstallation wiederhergestellt.
 
-**Deinstallation:** `./uninstall.sh` (bzw. `sudo ./uninstall.sh --system`).
+**Deinstallation:** `./uninstall.sh` (bzw. `sudo ./uninstall.sh --system`) stellt den Zustand vor der
+Installation wieder her – getestet bis aufs Byte, auch für Installationen älterer Versionen.
+Installierte Pakete und die Firewall bleiben bestehen.
+
+**Systemmodus (`--system`) und bestehende Benutzer:** Dateien, die die Distribution selbst mitliefert
+(z. B. die Sitzungsdefinition von XFCE), werden in `/etc/xdg` nie überschrieben. Neue Benutzer bekommen die volle
+Konfiguration aus `/etc/skel`; bestehende Benutzer erhalten beim nächsten Login Theme, Schrift und Hintergrund
+(win7-firstrun). Für Panel-Layout und Tastenkürzel eines bestehenden Benutzers dort `./install.sh` (ohne `--system`) ausführen.
 **Stil wechseln:** `./install.sh --style aero --no-packages` (oder `--style retro`).
 
 ### Unterstützte Systeme
@@ -159,6 +169,73 @@ Overlay in jeder bash aktiv.
 
 ---
 
+## Kali-Werkzeuge
+
+```bash
+sudo ./install.sh --system --with-kali-tools              # alle verfügbaren Kali-typischen Werkzeuge
+sudo ./install.sh --system --with-kali-tools=top10        # nur die wichtigsten (nmap, wireshark, john, hydra, aircrack-ng, sqlmap, ...)
+```
+
+* **Auf Kali Linux** werden die offiziellen Metapakete installiert: `--kali-level core | top10 | default | large | everything | headless`
+  oder eine Kategorie wie `web`, `wireless`, `passwords`, `forensics` (= `kali-tools-<kategorie>`).
+* **Auf Debian, Ubuntu, Mint & Co.** werden die Kali-typischen Werkzeuge aus den **normalen Paketquellen** der Distribution
+  installiert (`scripts/kali-tools.list`, rund 110 Werkzeuge in Kategorien: Informationsbeschaffung, Schwachstellen, Web,
+  Passwörter, WLAN, Sniffing, Reverse Engineering, Forensik, Exploitation). Fehlende Pakete werden einzeln übersprungen.
+* **Das Kali-Repository wird absichtlich nicht eingebunden.** Kali warnt ausdrücklich davor, es in eine fremde Distribution zu
+  kopieren: Es ersetzt Systempakete und kann das System unbrauchbar machen. Nur im Kali-Repository gibt es u. a.
+  **Metasploit** (`metasploit-framework`), **Burp Suite**, **Responder** und **NetExec**. Metasploit gibt es als Installer von
+  Rapid7, Burp Suite von PortSwigger – bitte dort selbst herunterladen.
+* **Ein komplettes Kali als Betriebssystem** (mit allen Kali-Paketen und dem Overlay) baut `sudo ./iso/build-kali-iso.sh`
+  (offizielle Kali-Baukonfiguration, per Docker/Podman; siehe Kopfzeilen des Skripts).
+* Der Tor-Dienst wird nach der Installation ausgeschaltet; Start bei Bedarf mit `sudo systemctl start tor`.
+
+> Diese Werkzeuge dürfen nur auf eigenen Systemen oder mit ausdrücklicher schriftlicher Erlaubnis eingesetzt werden.
+
+---
+
+## Absichern und prüfen
+
+**`win7-doctor`** prüft das laufende System auf typische Lücken – rein lesend, mit `sudo` gründlicher:
+
+```
+== 2. Updates ==
+[WARN] 19 Sicherheitsupdates stehen aus (25 Updates insgesamt).
+       ↳ sudo apt update && sudo apt upgrade
+== 3. Firewall und offene Ports ==
+[WARN] Keine aktive Firewall gefunden.
+       ↳ sudo ./install.sh --system --harden
+```
+
+Geprüft werden: Overlay-Dateirechte, ausstehende Sicherheitsupdates, Firewall, von außen erreichbare Ports, SSH-Konfiguration,
+Konten (leere Passwörter, UID 0, sudo ohne Passwort), Kernel-Einstellungen (ASLR, kptr_restrict, Symlink-Schutz …),
+Secure Boot, Festplattenverschlüsselung, AppArmor/SELinux, automatische Anmeldung, riskante Dienste, schreibbare PATH-Ordner,
+SUID-Dateien an ungewöhnlichen Orten. Rückgabewert = Anzahl der Warnungen (`--fast` überspringt die langsamen Suchen).
+
+**`--harden`** (mit `--system`) behebt die häufigsten Befunde: Firewall (`ufw`, eingehend gesperrt – laufendes SSH bleibt erreichbar),
+automatische Sicherheitsupdates, Kernel-/Netzwerk-Einstellungen (`/etc/sysctl.d/99-thewindowslinux.conf`) und SSH-Härtung.
+Wer Pentest-Labs mit eingehenden Verbindungen betreibt, gibt Ports gezielt frei (`sudo ufw allow 4444/tcp`).
+
+Der vollständige Prüfbericht zu diesem Projekt (gefundene und behobene Lücken) steht in [docs/AUDIT.md](docs/AUDIT.md).
+
+---
+
+## Tests
+
+```bash
+bash tests/run-all.sh             # Lint + Overlay-Tests + Installations-Roundtrip + Altversions-Deinstallation
+sudo bash tests/test-system.sh    # Systemmodus (verändert das System – nur in Wegwerf-Container/VM)
+```
+
+* `tests/test-cmd.py` startet die Eingabeaufforderung in einem echten Pseudo-Terminal (mit der Ubuntu-Standard-`.bashrc`)
+  und prüft, dass Windows-Befehle funktionieren **und** normale Linux-Befehle (`mkdir -p`, `find -exec … \;`, `cd -`, `echo -e`,
+  `ping`, `time` …) unverändert bleiben.
+* `tests/test-install.sh` installiert zweimal (Retro, dann Aero) auf einem Testkonto mit eigenen Konfigurationsdateien,
+  deinstalliert und vergleicht den Zustand Datei für Datei.
+* `tests/test-system.sh` installiert systemweit aus einem Quellordner mit fremdem Eigentümer, startet eine echte
+  XFCE-Sitzung für einen neuen Benutzer und deinstalliert wieder.
+
+---
+
 ## Aufbau des Repositories
 
 ```
@@ -166,12 +243,16 @@ install.sh / uninstall.sh      Installer / Deinstaller (Benutzer- oder Systemmod
 lib/common.sh                  Hilfsfunktionen, Distributions- und Stil-Erkennung
 scripts/                       Installationsschritte: packages, theme, xfce, cmd, login
 cmd/cmdrc.sh                   das cmd-Overlay für bash
-cmd/bin/                       cmd, win7-terminal, win7-sound, win7-firstrun
+cmd/bin/                       cmd, win7-terminal, win7-sound, win7-wallpaper, win7-doctor, win7-firstrun
 theme/styles/retro/            Retro-Stil: gtk/Windows-Retro, xfwm4, icons (+cursors), wallpapers, sounds
 theme/styles/aero/             Aero-Stil: gtk/Windows7-Aero, xfwm4, icons, wallpapers, sounds
 theme/xfce4/                   XFCE-Konfiguration (xfconf-Kanäle, Panel, Starter, Terminal, Thunar, Autostart)
 tools/generate-assets.py       erzeugt alle Grafiken/Sounds neu (PIL + numpy, Cursor via xcursorgen)
 iso/build-iso.sh               Live-ISO mit Debian live-build (Overlay vorinstalliert)
+iso/build-kali-iso.sh          Kali-Live-ISO (offizielle Kali-Baukonfiguration) mit dem Overlay
+scripts/harden.sh, kali.sh     optionale Schritte: Absicherung, Kali-Werkzeuge (+ kali-tools.list)
+tests/                         automatische Tests (Overlay, Installation, Systemmodus)
+docs/AUDIT.md                  Prüfbericht
 docs/                          Screenshot und Mockups
 ```
 
@@ -193,7 +274,9 @@ bearbeiten; die 32-px-Icons werden mit Zeichenprimitiven gemalt.
 ISO (XFCE + Overlay systemweit + Calamares-Installer). Benötigt einen Debian/Ubuntu-Host
 mit `live-build debootstrap xorriso squashfs-tools`, Internet und ~10 GB Platz.
 Der ISO-Build wurde in der Entwicklungsumgebung nur auf Syntax geprüft, nicht komplett
-durchlaufen.
+durchlaufen. Das Live-System meldet sich als `user` mit dem Passwort `live` an (Standard von Debian
+live-config) – bei einer Installation sofort ändern. Eine Kali-Variante mit allen Kali-Paketen:
+`sudo ./iso/build-kali-iso.sh` (Vorbereitung getestet, der eigentliche Bau nicht).
 
 ---
 
@@ -207,7 +290,18 @@ durchlaufen.
   Einstellungen → Erscheinungsbild → Schriften, oder `--style aero`.
 * Qt-Programme nehmen den GTK-Look nur an, wenn `qt5-gtk2-platformtheme`
   (bzw. `qt5-styleplugins`) installiert ist.
-* Wayland-Sitzungen werden nicht unterstützt (XFCE/X11).
+* Wayland-Sitzungen werden nicht unterstützt (XFCE/X11). GTK-4-/libadwaita-Programme (z. B. neuere GNOME-Apps)
+  ignorieren GTK-3-Themes und behalten ihr eigenes Aussehen.
+* Die Eingabeaufforderung ist eine bash-Schicht, keine Windows-Emulation: Windows-Befehle heißen und
+  funktionieren ähnlich (`DIR`, `COPY`, `IPCONFIG`, …), Windows-Programme (`.exe`) laufen dadurch nicht.
+  Normale Linux-Befehle bleiben unverändert (siehe Tests). `cd` ohne Argument zeigt wie unter Windows das
+  aktuelle Verzeichnis an (Home: `cd ~`); `shutdown` nutzt die Windows-Schalter `/s /r /l /h /a`, Linux-Aufrufe
+  wie `shutdown -h now` gehen unverändert an das echte Programm.
+* Das Overlay bringt keine Programme mit, sondern nur Konfiguration und Grafiken: Sicherheitslücken (CVEs) in den
+  installierten Programmen kommen aus der Distribution – darum regelmäßig aktualisieren (`--harden` richtet
+  automatische Sicherheitsupdates ein).
+* Nicht in der Entwicklungsumgebung ausgeführt (nur Syntax/Vorbereitung geprüft): GRUB-/Plymouth-/LightDM-Schritte
+  auf echter Hardware und der komplette ISO-Bau.
 
 ## Lizenz
 

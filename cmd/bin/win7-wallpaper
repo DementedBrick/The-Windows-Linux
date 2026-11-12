@@ -27,11 +27,13 @@ apply() {
     echo "Hintergrund: $(basename "$img")"
 }
 
+name_ok() { case "$1" in ""|*/*|.*) echo "Ungültiger Name: $1" >&2; exit 2 ;; esac; }
 case "${1:-list}" in
     list|-l|--list) list ;;
     set) [ -n "${2:-}" ] || { echo "Name fehlt. Siehe: win7-wallpaper list" >&2; exit 1; }
+         name_ok "$2"
          f="$DIR/retro-$2.png"; [ -f "$f" ] || f="$DIR/$2.png"; apply "$f" ;;
     random) pick="$(list | shuf -n1)"; f="$DIR/retro-$pick.png"; [ -f "$f" ] || f="$DIR/$pick.png"; apply "$f" ;;
     -h|--help) sed -n '2,7p' "$0" ;;
-    *) if [ -f "$1" ]; then apply "$(readlink -f "$1")"; else f="$DIR/retro-$1.png"; [ -f "$f" ] || f="$DIR/$1.png"; apply "$f"; fi ;;
+    *) if [ -f "$1" ]; then apply "$(readlink -f "$1")"; else name_ok "$1"; f="$DIR/retro-$1.png"; [ -f "$f" ] || f="$DIR/$1.png"; apply "$f"; fi ;;
 esac
