@@ -53,7 +53,6 @@ sudo ./install.sh --full                    # alles: System, Login, GRUB, Plymou
 ./install.sh --no-packages                  # XFCE ist schon da, nur Overlay anwenden
 ./install.sh --cmd-everywhere               # jedes Terminal wird zur Eingabeaufforderung
 sudo ./install.sh --system --harden         # System absichern (Firewall, Auto-Updates, Kernel, SSH)
-sudo ./install.sh --system --with-kali-tools   # Kali-Werkzeuge (siehe unten)
 ./install.sh --help                         # alle Optionen
 ```
 
@@ -85,7 +84,7 @@ Konfiguration aus `/etc/skel`; bestehende Benutzer erhalten beim nächsten Login
 
 | Distribution | Paketschritt |
 |---|---|
-| Debian, Ubuntu, Mint, Pop!_OS, Zorin, Kali, Raspberry Pi OS | `apt` |
+| Debian, Ubuntu, Mint, Pop!_OS, Zorin, Raspberry Pi OS | `apt` |
 | Fedora, RHEL/Rocky/Alma | `dnf` |
 | Arch, Manjaro, EndeavourOS | `pacman` |
 | openSUSE | `zypper` |
@@ -184,30 +183,6 @@ Overlay in jeder bash aktiv.
 
 ---
 
-## Kali-Werkzeuge
-
-```bash
-sudo ./install.sh --system --with-kali-tools              # alle verfügbaren Kali-typischen Werkzeuge
-sudo ./install.sh --system --with-kali-tools=top10        # nur die wichtigsten (nmap, wireshark, john, hydra, aircrack-ng, sqlmap, ...)
-```
-
-* **Auf Kali Linux** werden die offiziellen Metapakete installiert: `--kali-level core | top10 | default | large | everything | headless`
-  oder eine Kategorie wie `web`, `wireless`, `passwords`, `forensics` (= `kali-tools-<kategorie>`).
-* **Auf Debian, Ubuntu, Mint & Co.** werden die Kali-typischen Werkzeuge aus den **normalen Paketquellen** der Distribution
-  installiert (`scripts/kali-tools.list`, rund 110 Werkzeuge in Kategorien: Informationsbeschaffung, Schwachstellen, Web,
-  Passwörter, WLAN, Sniffing, Reverse Engineering, Forensik, Exploitation). Fehlende Pakete werden einzeln übersprungen.
-* **Das Kali-Repository wird absichtlich nicht eingebunden.** Kali warnt ausdrücklich davor, es in eine fremde Distribution zu
-  kopieren: Es ersetzt Systempakete und kann das System unbrauchbar machen. Nur im Kali-Repository gibt es u. a.
-  **Metasploit** (`metasploit-framework`), **Burp Suite**, **Responder** und **NetExec**. Metasploit gibt es als Installer von
-  Rapid7, Burp Suite von PortSwigger – bitte dort selbst herunterladen.
-* **Ein komplettes Kali als Betriebssystem** (mit allen Kali-Paketen und dem Overlay) baut `sudo ./iso/build-kali-iso.sh`
-  (offizielle Kali-Baukonfiguration, per Docker/Podman; siehe Kopfzeilen des Skripts).
-* Der Tor-Dienst wird nach der Installation ausgeschaltet; Start bei Bedarf mit `sudo systemctl start tor`.
-
-> Diese Werkzeuge dürfen nur auf eigenen Systemen oder mit ausdrücklicher schriftlicher Erlaubnis eingesetzt werden.
-
----
-
 ## Absichern und prüfen
 
 **`win7-doctor`** prüft das laufende System auf typische Lücken – rein lesend, mit `sudo` gründlicher:
@@ -272,8 +247,7 @@ theme/styles/aero/             Aero-Stil: gtk/Windows7-Aero, xfwm4, icons, wallp
 theme/xfce4/                   XFCE-Konfiguration (xfconf-Kanäle, Panel, Starter, Terminal, Thunar, Autostart)
 tools/generate-assets.py       erzeugt alle Grafiken/Sounds neu (PIL + numpy, Cursor via xcursorgen)
 iso/build-iso.sh               Live-ISO mit Debian live-build (Overlay vorinstalliert)
-iso/build-kali-iso.sh          Kali-Live-ISO (offizielle Kali-Baukonfiguration) mit dem Overlay
-scripts/harden.sh, kali.sh     optionale Schritte: Absicherung, Kali-Werkzeuge (+ kali-tools.list)
+scripts/harden.sh              optionaler Schritt: Absicherung
 tests/                         automatische Tests (Overlay, Installation, Systemmodus)
 docs/AUDIT.md                  Prüfbericht
 docs/                          Screenshot und Mockups
@@ -298,8 +272,7 @@ ISO (XFCE + Overlay systemweit + Calamares-Installer). Benötigt einen Debian/Ub
 mit `live-build debootstrap xorriso squashfs-tools`, Internet und ~10 GB Platz.
 Der ISO-Build wurde in der Entwicklungsumgebung nur auf Syntax geprüft, nicht komplett
 durchlaufen. Das Live-System meldet sich als `user` mit dem Passwort `live` an (Standard von Debian
-live-config) – bei einer Installation sofort ändern. Eine Kali-Variante mit allen Kali-Paketen:
-`sudo ./iso/build-kali-iso.sh` (Vorbereitung getestet, der eigentliche Bau nicht).
+live-config) – bei einer Installation sofort ändern. 
 
 ---
 
